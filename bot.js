@@ -1,9 +1,11 @@
 require('dotenv').config();
 const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder } = require('discord.js');
+const db = require('./db');
+
+db.initDatabase();
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
-// Custom emojis (must be uploaded in your server)
 const EMOJI_MAP = {
   rumtankard: '<:rumtankard:1361481716610498773>',
   rumbottle: '<:rumbottle:1361481745672962270>',
@@ -12,7 +14,6 @@ const EMOJI_MAP = {
   nigel: '<:Nigel:1361481810495934474>'
 };
 
-// Slot symbols and probabilities
 const symbols = [
   { name: 'rumtankard', chance: 0.38, gold: 4, xp: 2 },
   { name: 'rumbottle', chance: 0.27, gold: 7, xp: 3 },
@@ -36,14 +37,13 @@ function getSymbol(name) {
 }
 
 const winningLines = [
-  [0, 1, 2], // top row
-  [3, 4, 5], // middle row
-  [6, 7, 8], // bottom row
-  [0, 4, 8], // diagonal
-  [2, 4, 6]  // reverse diagonal
+  [0, 1, 2],
+  [3, 4, 5],
+  [6, 7, 8],
+  [0, 4, 8],
+  [2, 4, 6]
 ];
 
-// Line checker with Nigel substitutions
 function checkWinningLines(grid) {
   let gold = 0;
   let xp = 0;
@@ -57,8 +57,7 @@ function checkWinningLines(grid) {
       const base = getSymbol('nigel');
       gold += base.gold;
       xp += base.xp;
-    }
-    else if (nonNigels.length > 0 && nonNigels.every(n => n === nonNigels[0])) {
+    } else if (nonNigels.length > 0 && nonNigels.every(n => n === nonNigels[0])) {
       const base = getSymbol(nonNigels[0]);
       gold += base.gold;
       xp += base.xp;
@@ -68,41 +67,126 @@ function checkWinningLines(grid) {
   return { gold, xp };
 }
 
-// Bot ready
 client.once('ready', () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
 });
 
-// Handle /spin command
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
+  const userId = interaction.user.id;
+
   if (interaction.commandName === 'spin') {
-    const userId = interaction.user.id;
     const userName = interaction.user.username;
 
-    const reels = Array.from({ length: 9 }, spinReel);
-    const emojiGrid = reels.map(s => EMOJI_MAP[s.name]);
-    const gridDisplay =
-      `${emojiGrid.slice(0, 3).join(' ')}\n` +
-      `${emojiGrid.slice(3, 6).join(' ')}\n` +
-      `${emojiGrid.slice(6, 9).join(' ')}`;
+    const cost = 10;
+    db.getUserProfile(userId, (err, profile) => {
+      if (err || profile.gold < cost) {
+        return interaction.reply({ content: `❌ You need at least ${cost} Gold to spin!`, ephemeral: true });
+      }
 
-    const { gold: totalGold, xp: totalXP } = checkWinningLines(reels);
+      db.addGold(userId, -cost);
 
-    const gameLink = `https://doubloon-destiny-nigels-fortune-v01.netlify.app`;
+      const reels = Array.from({ length: 9 }, spinReel);
+      const emojiGrid = reels.map(s => EMOJI_MAP[s.name]);
+      const gridDisplay = `${emojiGrid.slice(0, 3).join(' ')}\n${emojiGrid.slice(3, 6).join(' ')}\n${emojiGrid.slice(6, 9).join(' ')}`;
 
-    await interaction.reply({
-      content: `🎰 **@${userName} spun the reels!**\n${gridDisplay}\nYou won **${totalGold} Gold** and **${totalXP} XP**!\n\n🎮 [Continue your journey](${gameLink})`,
-      flags: 64
+      const { gold: totalGold, xp: totalXP } = checkWinningLines(reels);
+
+      db.addGold(userId, totalGold);
+      db.addXP(userId, totalXP);
+
+      db.getUserProfile(userId, (err, updatedProfile) => {
+        const progress = db.getXPProgressBar(updatedProfile.xp, updatedProfile.level);
+        const title = db.getTitle(updatedProfile.level);
+        const boost = db.getGoldBoost(updatedProfile.level);
+
+        const gameLink = `https://doubloon-destiny-nigels-fortune-v01.netlify.app`;
+        interaction.reply({
+          content: `🎰 **@${userName} spun the reels!**\n${gridDisplay}\n🏅 Title: ${title}\n🔢 Level: ${updatedProfile.level}\n📊 XP: ${progress}\n💰 Gold Boost: +${boost}%\nYou won **${totalGold} Gold** and **${totalXP} XP**\n\n🎮 [Continue your journey](${gameLink})`,
+          flags: 64
+        });
+      });
     });
-    
+  }
+
+  if (interaction.commandName === 'profile') {
+    db.getUserProfile(userId, (err, profile) => {
+      if (err) return interaction.reply({ content: 'Error loading profile.', ephemeral: true });
+      const title = db.getTitle(profile.level);
+      const xpBar = db.getXPProgressBar(profile.xp, profile.level);
+      const boost = db.getGoldBoost(profile.level);
+      interaction.reply({
+        content: `🏴‍☠️ **Your Pirate Profile**\n🏅 Title: ${title}\n🔢 Level: ${profile.level}\n📊 XP: ${xpBar}\n💰 Gold Boost: +${boost}%`,
+        ephemeral: true
+      });
+    });
+  }
+
+  if (interaction.commandName === 'balance') {
+    db.getUserProfile(userId, (err, profile) => {
+      if (err) return interaction.reply({ content: 'Error retrieving balance.', ephemeral: true });
+      interaction.reply({
+        content: `💰 You currently have **${profile.gold} Gold**.\n🔢 Level: ${profile.level} | XP: ${profile.xp}`,
+        ephemeral: true
+      });
+    });
+  }
+
+  if (interaction.commandName === 'leaderboard') {
+    db.getLeaderboard((err, rows) => {
+      if (err) return interaction.reply({ content: 'Error loading leaderboard.', ephemeral: true });
+      const formatted = rows.map((r, i) => `#${i + 1} <@${r.user_id}> — ${r.gold} Gold`).join('\n');
+      interaction.reply({
+        content: `🏆 **Top Gold Holders**\n${formatted}`,
+        ephemeral: true
+      });
+    });
+  }
+
+  if (interaction.commandName === 'admin') {
+    if (interaction.user.id !== process.env.ADMIN_ID) return interaction.reply({ content: 'No permission!', ephemeral: true });
+    const sub = interaction.options.getSubcommand();
+    const target = interaction.options.getUser('user');
+    const amount = interaction.options.getInteger('amount');
+    if (sub === 'addgold') {
+      db.addGold(target.id, amount);
+      interaction.reply({ content: `✅ Added ${amount} gold to ${target.username}`, ephemeral: true });
+    }
+    if (sub === 'removegold') {
+      db.addGold(target.id, -amount);
+      interaction.reply({ content: `✅ Removed ${amount} gold from ${target.username}`, ephemeral: true });
+    }
+    if (sub === 'addxp') {
+      db.addXP(target.id, amount);
+      interaction.reply({ content: `✅ Added ${amount} XP to ${target.username}`, ephemeral: true });
+    }
   }
 });
 
-// Register slash command
 const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
 const commands = [
-  new SlashCommandBuilder().setName('spin').setDescription('Spin the Pirate Ape slot machine!')
+  new SlashCommandBuilder().setName('spin').setDescription('Spin the Pirate Ape slot machine!'),
+  new SlashCommandBuilder().setName('profile').setDescription('Check your pirate level and title'),
+  new SlashCommandBuilder().setName('balance').setDescription('Check your gold balance'),
+  new SlashCommandBuilder().setName('leaderboard').setDescription('View top gold holders'),
+  new SlashCommandBuilder()
+    .setName('admin')
+    .setDescription('Admin tools')
+    .addSubcommand(cmd =>
+      cmd.setName('addgold').setDescription('Add gold to a user')
+        .addUserOption(opt => opt.setName('user').setDescription('User').setRequired(true))
+        .addIntegerOption(opt => opt.setName('amount').setDescription('Gold amount').setRequired(true))
+    )
+    .addSubcommand(cmd =>
+      cmd.setName('removegold').setDescription('Remove gold from a user')
+        .addUserOption(opt => opt.setName('user').setDescription('User').setRequired(true))
+        .addIntegerOption(opt => opt.setName('amount').setDescription('Gold amount').setRequired(true))
+    )
+    .addSubcommand(cmd =>
+      cmd.setName('addxp').setDescription('Add XP to a user')
+        .addUserOption(opt => opt.setName('user').setDescription('User').setRequired(true))
+        .addIntegerOption(opt => opt.setName('amount').setDescription('XP amount').setRequired(true))
+    )
 ];
 
 (async () => {
