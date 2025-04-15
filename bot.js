@@ -93,8 +93,9 @@ client.on('interactionCreate', async interaction => {
 
     await interaction.reply({
       content: `🎰 **@${userName} spun the reels!**\n${gridDisplay}\nYou won **${totalGold} Gold** and **${totalXP} XP**!\n\n🎮 [Continue your journey](${gameLink})`,
-      ephemeral: true // Use .setFlags() if this warning persists
+      flags: 64
     });
+    
   }
 });
 
