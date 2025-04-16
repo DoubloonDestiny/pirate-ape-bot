@@ -1,6 +1,7 @@
 require('dotenv').config();
 const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder } = require('discord.js');
 const db = require('./db');
+const slot = require('./slot'); // This is the file you saved from canvas
 
 db.initDatabase();
 
@@ -72,5 +73,9 @@ module.exports = {
   getTitle: db.getTitle,
   getGoldBoost: db.getGoldBoost,
   getLeaderboard: db.getLeaderboard,
-  checkWinningLines
+  checkWinningLines,
+  spinReel,
+  getSymbol,
+  EMOJI_MAP,
+  symbols
 };
