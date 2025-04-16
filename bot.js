@@ -75,21 +75,67 @@ client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
   const userId = interaction.user.id;
 
+  if (interaction.commandName === 'bet') {
+    const amount = interaction.options.getInteger('amount');
+    const quantity = interaction.options.getInteger('quantity') || 1;
+    const totalCost = amount * quantity;
+
+    db.getUserProfile(userId, (err, profile) => {
+      if (err || profile.gold < totalCost) {
+        return interaction.reply({ content: `❌ You need at least ${totalCost} Gold to bet ${amount} for ${quantity} spin(s)!`, ephemeral: true });
+      }
+
+      db.addGold(userId, -totalCost);
+      let totalGold = 0;
+      let totalXP = 0;
+      let allDisplays = [];
+
+      for (let i = 0; i < quantity; i++) {
+        const reels = Array.from({ length: 9 }, spinReel);
+        const emojiGrid = reels.map(s => EMOJI_MAP[s.name]);
+        const gridDisplay = `${emojiGrid.slice(0, 3).join(' ')}\n${emojiGrid.slice(3, 6).join(' ')}\n${emojiGrid.slice(6, 9).join(' ')}`;
+        const { gold, xp } = checkWinningLines(reels);
+
+        totalGold += gold * amount;
+        totalXP += xp * amount;
+        allDisplays.push(`🎰 Spin ${i + 1}:\n${gridDisplay}`);
+      }
+
+      db.addGold(userId, totalGold);
+      db.addXP(userId, totalXP);
+
+      db.getUserProfile(userId, (err, updatedProfile) => {
+        const progress = db.getXPProgressBar(updatedProfile.xp, updatedProfile.level);
+        const title = db.getTitle(updatedProfile.level);
+        const boost = db.getGoldBoost(updatedProfile.level);
+
+        interaction.reply({
+          content: `${allDisplays.join('\n\n')}
+
+🏅 Title: ${title}
+🔢 Level: ${updatedProfile.level}
+📊 XP: ${progress}
+💰 Gold Boost: +${boost}%
+You won a total of **${totalGold} Gold** and **${totalXP} XP**!`,
+          ephemeral: true
+        });
+      });
+    });
+  }
+
   if (interaction.commandName === 'spin') {
     const userName = interaction.user.username;
-
     const cost = 10;
+
     db.getUserProfile(userId, (err, profile) => {
       if (err || profile.gold < cost) {
         return interaction.reply({ content: `❌ You need at least ${cost} Gold to spin!`, ephemeral: true });
       }
 
       db.addGold(userId, -cost);
-
       const reels = Array.from({ length: 9 }, spinReel);
       const emojiGrid = reels.map(s => EMOJI_MAP[s.name]);
       const gridDisplay = `${emojiGrid.slice(0, 3).join(' ')}\n${emojiGrid.slice(3, 6).join(' ')}\n${emojiGrid.slice(6, 9).join(' ')}`;
-
       const { gold: totalGold, xp: totalXP } = checkWinningLines(reels);
 
       db.addGold(userId, totalGold);
@@ -166,6 +212,9 @@ client.on('interactionCreate', async interaction => {
 const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
 const commands = [
   new SlashCommandBuilder().setName('spin').setDescription('Spin the Pirate Ape slot machine!'),
+  new SlashCommandBuilder().setName('bet').setDescription('Place a gold bet for spin(s)')
+    .addIntegerOption(opt => opt.setName('amount').setDescription('Gold to bet per spin').setRequired(true))
+    .addIntegerOption(opt => opt.setName('quantity').setDescription('Number of spins').setRequired(false)),
   new SlashCommandBuilder().setName('profile').setDescription('Check your pirate level and title'),
   new SlashCommandBuilder().setName('balance').setDescription('Check your gold balance'),
   new SlashCommandBuilder().setName('leaderboard').setDescription('View top gold holders'),
