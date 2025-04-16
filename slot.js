@@ -1,11 +1,10 @@
-require('dotenv').config();
-const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder } = require('discord.js');
-const db = require('./db');
-const slot = require('./slot'); // This is the file you saved from canvas
-
-db.initDatabase();
-
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+const symbols = [
+  { name: 'rumtankard', chance: 0.38, gold: 4, xp: 2 },
+  { name: 'rumbottle', chance: 0.27, gold: 7, xp: 3 },
+  { name: 'rumbarrel', chance: 0.20, gold: 12, xp: 5 },
+  { name: 'chest', chance: 0.12, gold: 18, xp: 7 },
+  { name: 'nigel', chance: 0.03, gold: 35, xp: 10, isWild: true }
+];
 
 const EMOJI_MAP = {
   rumtankard: '<:rumtankard:1361481716610498773>',
@@ -15,12 +14,8 @@ const EMOJI_MAP = {
   nigel: '<:Nigel:1361481810495934474>'
 };
 
-const symbols = [
-  { name: 'rumtankard', chance: 0.38, gold: 4, xp: 2 },
-  { name: 'rumbottle', chance: 0.27, gold: 7, xp: 3 },
-  { name: 'rumbarrel', chance: 0.20, gold: 12, xp: 5 },
-  { name: 'chest', chance: 0.12, gold: 18, xp: 7 },
-  { name: 'nigel', chance: 0.03, gold: 35, xp: 10, isWild: true }
+const winningLines = [
+  [0, 1, 2], [3, 4, 5], [6, 7, 8], [0, 4, 8], [2, 4, 6]
 ];
 
 function spinReel() {
@@ -37,13 +32,9 @@ function getSymbol(name) {
   return symbols.find(s => s.name === name);
 }
 
-const winningLines = [
-  [0, 1, 2], [3, 4, 5], [6, 7, 8], [0, 4, 8], [2, 4, 6]
-];
-
 function checkWinningLines(grid, multiplier = 1) {
   let gold = 0;
-  let xp = 1; // static 1 XP base per spin
+  let xp = 1; // static 1 XP per spin
 
   for (const line of winningLines) {
     const lineSymbols = line.map(i => grid[i]);
@@ -65,17 +56,9 @@ function checkWinningLines(grid, multiplier = 1) {
 }
 
 module.exports = {
-  initDatabase: db.initDatabase,
-  getUserProfile: db.getUserProfile,
-  addGold: db.addGold,
-  addXP: db.addXP,
-  getXPProgressBar: db.getXPProgressBar,
-  getTitle: db.getTitle,
-  getGoldBoost: db.getGoldBoost,
-  getLeaderboard: db.getLeaderboard,
-  checkWinningLines,
+  symbols,
+  EMOJI_MAP,
   spinReel,
   getSymbol,
-  EMOJI_MAP,
-  symbols
+  checkWinningLines
 };
