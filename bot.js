@@ -1,6 +1,8 @@
 require('dotenv').config();
 const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder } = require('discord.js');
 const db = require('./db');
+const { checkWinningLines } = require('./db');
+
 
 db.initDatabase();
 
