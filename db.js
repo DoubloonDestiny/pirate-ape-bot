@@ -4,7 +4,7 @@ const db = new sqlite3.Database('./pirateape.db');
 function initDatabase() {
   db.run(`CREATE TABLE IF NOT EXISTS users (
     user_id TEXT PRIMARY KEY,
-    gold INTEGER DEFAULT 100,
+    gold INTEGER DEFAULT 10000,
     xp INTEGER DEFAULT 0,
     level INTEGER DEFAULT 1
   )`);

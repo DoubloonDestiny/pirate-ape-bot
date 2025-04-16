@@ -37,14 +37,10 @@ function getSymbol(name) {
 }
 
 const winningLines = [
-  [0, 1, 2],
-  [3, 4, 5],
-  [6, 7, 8],
-  [0, 4, 8],
-  [2, 4, 6]
+  [0, 1, 2], [3, 4, 5], [6, 7, 8], [0, 4, 8], [2, 4, 6]
 ];
 
-function checkWinningLines(grid) {
+function checkWinningLines(grid, multiplier = 1) {
   let gold = 0;
   let xp = 0;
 
@@ -55,12 +51,12 @@ function checkWinningLines(grid) {
 
     if (names.every(n => n === 'nigel')) {
       const base = getSymbol('nigel');
-      gold += base.gold;
-      xp += base.xp;
+      gold += base.gold * multiplier;
+      xp += base.xp * multiplier;
     } else if (nonNigels.length > 0 && nonNigels.every(n => n === nonNigels[0])) {
       const base = getSymbol(nonNigels[0]);
-      gold += base.gold;
-      xp += base.xp;
+      gold += base.gold * multiplier;
+      xp += base.xp * multiplier;
     }
   }
 
@@ -75,81 +71,66 @@ client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
   const userId = interaction.user.id;
 
-  if (interaction.commandName === 'bet') {
-    const amount = interaction.options.getInteger('amount');
-    const quantity = interaction.options.getInteger('quantity') || 1;
-    const totalCost = amount * quantity;
-
+  if (interaction.commandName === 'spin') {
+    const userName = interaction.user.username;
+    const cost = 10;
     db.getUserProfile(userId, (err, profile) => {
-      if (err || profile.gold < totalCost) {
-        return interaction.reply({ content: `❌ You need at least ${totalCost} Gold to bet ${amount} for ${quantity} spin(s)!`, ephemeral: true });
+      if (err || profile.gold < cost) {
+        return interaction.reply({ content: `❌ You need at least ${cost} Gold to spin!`, ephemeral: true });
       }
-
-      db.addGold(userId, -totalCost);
-      let totalGold = 0;
-      let totalXP = 0;
-      let allDisplays = [];
-
-      for (let i = 0; i < quantity; i++) {
-        const reels = Array.from({ length: 9 }, spinReel);
-        const emojiGrid = reels.map(s => EMOJI_MAP[s.name]);
-        const gridDisplay = `${emojiGrid.slice(0, 3).join(' ')}\n${emojiGrid.slice(3, 6).join(' ')}\n${emojiGrid.slice(6, 9).join(' ')}`;
-        const { gold, xp } = checkWinningLines(reels);
-
-        totalGold += gold * amount;
-        totalXP += xp * amount;
-        allDisplays.push(`🎰 Spin ${i + 1}:\n${gridDisplay}`);
-      }
-
-      db.addGold(userId, totalGold);
-      db.addXP(userId, totalXP);
-
+      db.addGold(userId, -cost);
+      const reels = Array.from({ length: 9 }, spinReel);
+      const emojiGrid = reels.map(s => EMOJI_MAP[s.name]);
+      const gridDisplay = `${emojiGrid.slice(0, 3).join(' ')}\n${emojiGrid.slice(3, 6).join(' ')}\n${emojiGrid.slice(6, 9).join(' ')}`;
+      const { gold, xp } = checkWinningLines(reels, cost);
+      db.addGold(userId, gold);
+      db.addXP(userId, xp);
       db.getUserProfile(userId, (err, updatedProfile) => {
         const progress = db.getXPProgressBar(updatedProfile.xp, updatedProfile.level);
         const title = db.getTitle(updatedProfile.level);
         const boost = db.getGoldBoost(updatedProfile.level);
-
+        const gameLink = `https://doubloon-destiny-nigels-fortune-v01.netlify.app`;
         interaction.reply({
-          content: `${allDisplays.join('\n\n')}
-
-🏅 Title: ${title}
-🔢 Level: ${updatedProfile.level}
-📊 XP: ${progress}
-💰 Gold Boost: +${boost}%
-You won a total of **${totalGold} Gold** and **${totalXP} XP**!`,
-          ephemeral: true
+          content: `🎰 **@${userName} spun the reels!**\n${gridDisplay}\n🏅 Title: ${title}\n🔢 Level: ${updatedProfile.level}\n📊 XP: ${progress}\n💰 Gold Boost: +${boost}%\nYou won **${gold} Gold** and **${xp} XP**\n\n🎮 [Continue your journey](${gameLink})`,
+          flags: 64
         });
       });
     });
   }
 
-  if (interaction.commandName === 'spin') {
-    const userName = interaction.user.username;
-    const cost = 10;
-
+  if (interaction.commandName === 'bet') {
+    const amount = interaction.options.getInteger('amount');
+    const quantity = interaction.options.getInteger('quantity') || 1;
+    if (quantity > 5) {
+      return interaction.reply({ content: `❌ You can only bet up to 5 spins at a time!`, ephemeral: true });
+    }
+    const totalCost = amount * quantity;
     db.getUserProfile(userId, (err, profile) => {
-      if (err || profile.gold < cost) {
-        return interaction.reply({ content: `❌ You need at least ${cost} Gold to spin!`, ephemeral: true });
+      if (err || profile.gold < totalCost) {
+        return interaction.reply({ content: `❌ You need at least ${totalCost} Gold to bet ${amount} for ${quantity} spin(s)!`, ephemeral: true });
       }
-
-      db.addGold(userId, -cost);
-      const reels = Array.from({ length: 9 }, spinReel);
-      const emojiGrid = reels.map(s => EMOJI_MAP[s.name]);
-      const gridDisplay = `${emojiGrid.slice(0, 3).join(' ')}\n${emojiGrid.slice(3, 6).join(' ')}\n${emojiGrid.slice(6, 9).join(' ')}`;
-      const { gold: totalGold, xp: totalXP } = checkWinningLines(reels);
-
+      db.addGold(userId, -totalCost);
+      let totalGold = 0;
+      let totalXP = 0;
+      let allDisplays = [];
+      for (let i = 0; i < quantity; i++) {
+        const reels = Array.from({ length: 9 }, spinReel);
+        const emojiGrid = reels.map(s => EMOJI_MAP[s.name]);
+        const gridDisplay = `${emojiGrid.slice(0, 3).join(' ')}\n${emojiGrid.slice(3, 6).join(' ')}\n${emojiGrid.slice(6, 9).join(' ')}`;
+        const { gold, xp } = checkWinningLines(reels, amount);
+        totalGold += gold;
+        totalXP += xp;
+        allDisplays.push(`🎰 Spin ${i + 1}:\n${gridDisplay}`);
+      }
       db.addGold(userId, totalGold);
       db.addXP(userId, totalXP);
-
       db.getUserProfile(userId, (err, updatedProfile) => {
         const progress = db.getXPProgressBar(updatedProfile.xp, updatedProfile.level);
         const title = db.getTitle(updatedProfile.level);
         const boost = db.getGoldBoost(updatedProfile.level);
-
-        const gameLink = `https://doubloon-destiny-nigels-fortune-v01.netlify.app`;
         interaction.reply({
-          content: `🎰 **@${userName} spun the reels!**\n${gridDisplay}\n🏅 Title: ${title}\n🔢 Level: ${updatedProfile.level}\n📊 XP: ${progress}\n💰 Gold Boost: +${boost}%\nYou won **${totalGold} Gold** and **${totalXP} XP**\n\n🎮 [Continue your journey](${gameLink})`,
-          flags: 64
+          content: `${allDisplays.join('\n\n')}\n\n🏅 Title: ${title}\n🔢 Level: ${updatedProfile.level}\n📊 XP: ${progress}\n💰 Gold Boost: +${boost}%\nYou won a total of **${totalGold} Gold** and **${totalXP} XP**!`,
+          ephemeral: true
         });
       });
     });
@@ -182,10 +163,7 @@ You won a total of **${totalGold} Gold** and **${totalXP} XP**!`,
     db.getLeaderboard((err, rows) => {
       if (err) return interaction.reply({ content: 'Error loading leaderboard.', ephemeral: true });
       const formatted = rows.map((r, i) => `#${i + 1} <@${r.user_id}> — ${r.gold} Gold`).join('\n');
-      interaction.reply({
-        content: `🏆 **Top Gold Holders**\n${formatted}`,
-        ephemeral: true
-      });
+      interaction.reply({ content: `🏆 **Top Gold Holders**\n${formatted}`, ephemeral: true });
     });
   }
 
@@ -194,18 +172,21 @@ You won a total of **${totalGold} Gold** and **${totalXP} XP**!`,
     const sub = interaction.options.getSubcommand();
     const target = interaction.options.getUser('user');
     const amount = interaction.options.getInteger('amount');
-    if (sub === 'addgold') {
-      db.addGold(target.id, amount);
-      interaction.reply({ content: `✅ Added ${amount} gold to ${target.username}`, ephemeral: true });
-    }
-    if (sub === 'removegold') {
-      db.addGold(target.id, -amount);
-      interaction.reply({ content: `✅ Removed ${amount} gold from ${target.username}`, ephemeral: true });
-    }
-    if (sub === 'addxp') {
-      db.addXP(target.id, amount);
-      interaction.reply({ content: `✅ Added ${amount} XP to ${target.username}`, ephemeral: true });
-    }
+    db.getUserProfile(target.id, (err) => {
+      if (err) return interaction.reply({ content: 'Error loading target profile.', ephemeral: true });
+      if (sub === 'addgold') {
+        db.addGold(target.id, amount);
+        return interaction.reply({ content: `✅ Added ${amount} gold to ${target.username}`, ephemeral: true });
+      }
+      if (sub === 'removegold') {
+        db.addGold(target.id, -amount);
+        return interaction.reply({ content: `✅ Removed ${amount} gold from ${target.username}`, ephemeral: true });
+      }
+      if (sub === 'addxp') {
+        db.addXP(target.id, amount);
+        return interaction.reply({ content: `✅ Added ${amount} XP to ${target.username}`, ephemeral: true });
+      }
+    });
   }
 });
 
@@ -214,13 +195,11 @@ const commands = [
   new SlashCommandBuilder().setName('spin').setDescription('Spin the Pirate Ape slot machine!'),
   new SlashCommandBuilder().setName('bet').setDescription('Place a gold bet for spin(s)')
     .addIntegerOption(opt => opt.setName('amount').setDescription('Gold to bet per spin').setRequired(true))
-    .addIntegerOption(opt => opt.setName('quantity').setDescription('Number of spins').setRequired(false)),
+    .addIntegerOption(opt => opt.setName('quantity').setDescription('Number of spins (max 5)').setRequired(false)),
   new SlashCommandBuilder().setName('profile').setDescription('Check your pirate level and title'),
   new SlashCommandBuilder().setName('balance').setDescription('Check your gold balance'),
   new SlashCommandBuilder().setName('leaderboard').setDescription('View top gold holders'),
-  new SlashCommandBuilder()
-    .setName('admin')
-    .setDescription('Admin tools')
+  new SlashCommandBuilder().setName('admin').setDescription('Admin tools')
     .addSubcommand(cmd =>
       cmd.setName('addgold').setDescription('Add gold to a user')
         .addUserOption(opt => opt.setName('user').setDescription('User').setRequired(true))
