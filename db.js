@@ -52,22 +52,23 @@ function getXPProgressBar(xp, level) {
 }
 
 function getTitle(level) {
-  if (level >= 100) return "🧙‍♂️ Legendary Gambler";
-  if (level >= 90) return "🎲 Dice Dreadnought";
-  if (level >= 80) return "🎰 Slot Machine Siren";
-  if (level >= 70) return "🏴‍☠️ High Roller Buccaneer";
-  if (level >= 60) return "🐙 The Kraken Gambler";
-  if (level >= 50) return "💰 Jackpot Admiral";
-  if (level >= 40) return "🃏 Captain of the Cards";
-  if (level >= 30) return "⚓ First Mate of Fortune";
-  if (level >= 20) return "🎯 Roulette Raider";
-  if (level >= 10) return "🍀 Lucky Deckhand";
+  if (level >= 100) return "Legendary Pirate Gambler 🧙‍♂️";
+  if (level >= 90) return "Dice Dreadnought 🎲";
+  if (level >= 80) return "Slot Machine Siren 🎰";
+  if (level >= 70) return "High Roller Buccaneer 🏴‍☠️";
+  if (level >= 60) return "The Kraken Gambler 🐙";
+  if (level >= 50) return "Jackpot Admiral 💰";
+  if (level >= 40) return "Captain of the Cards 🃏";
+  if (level >= 30) return "First Mate of Fortune ⚓";
+  if (level >= 20) return "Roulette Raider 🎯";
+  if (level >= 10) return "Lucky Deckhand 🍀";
   return "🪙 Swabby";
 }
 
 function getGoldBoost(level) {
-  return level >= 50 ? 50 : level;
-}
+    return Math.min(25, level * 0.25);
+  }
+  
 
 function getLeaderboard(callback) {
   db.all(`SELECT user_id, gold FROM users ORDER BY gold DESC LIMIT 10`, [], (err, rows) => {
