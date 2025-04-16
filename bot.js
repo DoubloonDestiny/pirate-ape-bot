@@ -1,8 +1,7 @@
 require('dotenv').config();
 const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder } = require('discord.js');
 const db = require('./db');
-const { checkWinningLines } = require('./db');
-
+const slot = require('./slot'); // This is the file you saved from canvas
 
 db.initDatabase();
 
@@ -38,33 +37,6 @@ function getSymbol(name) {
   return symbols.find(s => s.name === name);
 }
 
-const winningLines = [
-  [0, 1, 2], [3, 4, 5], [6, 7, 8], [0, 4, 8], [2, 4, 6]
-];
-
-function checkWinningLines(grid) {
-  let gold = 0;
-  let xp = 1; // static 1 XP base per spin
-
-  for (const line of winningLines) {
-    const lineSymbols = line.map(i => grid[i]);
-    const names = lineSymbols.map(s => s.name);
-    const nonNigels = names.filter(n => n !== 'nigel');
-
-    if (names.every(n => n === 'nigel')) {
-      const base = getSymbol('nigel');
-      gold += base.gold;
-      xp += base.xp;
-    } else if (nonNigels.length > 0 && nonNigels.every(n => n === nonNigels[0])) {
-      const base = getSymbol(nonNigels[0]);
-      gold += base.gold;
-      xp += base.xp;
-    }
-  }
-
-  return { gold, xp };
-}
-
 module.exports = {
   initDatabase: db.initDatabase,
   getUserProfile: db.getUserProfile,
@@ -76,7 +48,6 @@ module.exports = {
   getLeaderboard: db.getLeaderboard,
   checkWinningLines
 };
-
 
 client.once('ready', () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
@@ -97,7 +68,7 @@ client.on('interactionCreate', async interaction => {
       const reels = Array.from({ length: 9 }, spinReel);
       const emojiGrid = reels.map(s => EMOJI_MAP[s.name]);
       const gridDisplay = `${emojiGrid.slice(0, 3).join(' ')}\n${emojiGrid.slice(3, 6).join(' ')}\n${emojiGrid.slice(6, 9).join(' ')}`;
-      const { gold, xp } = checkWinningLines(reels, cost);
+      const { gold, xp } = slot.checkWinningLines(reels, cost); // or amount
       db.addGold(userId, gold);
       db.addXP(userId, xp);
       db.getUserProfile(userId, (err, updatedProfile) => {
@@ -132,7 +103,7 @@ client.on('interactionCreate', async interaction => {
         const reels = Array.from({ length: 9 }, spinReel);
         const emojiGrid = reels.map(s => EMOJI_MAP[s.name]);
         const gridDisplay = `${emojiGrid.slice(0, 3).join(' ')}\n${emojiGrid.slice(3, 6).join(' ')}\n${emojiGrid.slice(6, 9).join(' ')}`;
-        const { gold, xp } = checkWinningLines(reels, amount);
+        const { gold, xp } = slot.checkWinningLines(reels, amount);
         totalGold += gold;
         totalXP += xp;
         allDisplays.push(`🎰 Spin ${i + 1}:\n${gridDisplay}`);
