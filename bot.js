@@ -40,9 +40,9 @@ const winningLines = [
   [0, 1, 2], [3, 4, 5], [6, 7, 8], [0, 4, 8], [2, 4, 6]
 ];
 
-function checkWinningLines(grid, multiplier = 1) {
+function checkWinningLines(grid) {
   let gold = 0;
-  let xp = 0;
+  let xp = 1; // static 1 XP base per spin
 
   for (const line of winningLines) {
     const lineSymbols = line.map(i => grid[i]);
@@ -51,17 +51,30 @@ function checkWinningLines(grid, multiplier = 1) {
 
     if (names.every(n => n === 'nigel')) {
       const base = getSymbol('nigel');
-      gold += base.gold * multiplier;
-      xp += base.xp * multiplier;
+      gold += base.gold;
+      xp += base.xp;
     } else if (nonNigels.length > 0 && nonNigels.every(n => n === nonNigels[0])) {
       const base = getSymbol(nonNigels[0]);
-      gold += base.gold * multiplier;
-      xp += base.xp * multiplier;
+      gold += base.gold;
+      xp += base.xp;
     }
   }
 
   return { gold, xp };
 }
+
+module.exports = {
+  initDatabase: db.initDatabase,
+  getUserProfile: db.getUserProfile,
+  addGold: db.addGold,
+  addXP: db.addXP,
+  getXPProgressBar: db.getXPProgressBar,
+  getTitle: db.getTitle,
+  getGoldBoost: db.getGoldBoost,
+  getLeaderboard: db.getLeaderboard,
+  checkWinningLines
+};
+
 
 client.once('ready', () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
