@@ -110,7 +110,58 @@ client.on('interactionCreate', async interaction => {
     });
   }
 
-  // The rest of the commands (profile, balance, leaderboard, admin) remain unchanged.
+  if (interaction.commandName === 'profile') {
+    db.getUserProfile(userId, (err, profile) => {
+      if (err) return interaction.reply({ content: 'Error loading profile.', ephemeral: true });
+      const title = db.getTitle(profile.level);
+      const xpBar = db.getXPProgressBar(profile.xp, profile.level);
+      const boost = db.getGoldBoost(profile.level);
+      interaction.reply({
+        content: `🏴‍☠️ **Your Pirate Profile**\n🏅 Title: ${title}\n🔢 Level: ${profile.level}\n📊 XP: ${xpBar}\n💰 Gold Boost: +${boost.toFixed(2)}%`,
+        ephemeral: true
+      });
+    });
+  }
+
+  if (interaction.commandName === 'balance') {
+    db.getUserProfile(userId, (err, profile) => {
+      if (err) return interaction.reply({ content: 'Error retrieving balance.', ephemeral: true });
+      interaction.reply({
+        content: `💰 You currently have **${profile.gold} Gold**.\n🔢 Level: ${profile.level} | XP: ${profile.xp}`,
+        ephemeral: true
+      });
+    });
+  }
+
+  if (interaction.commandName === 'leaderboard') {
+    db.getLeaderboard((err, rows) => {
+      if (err) return interaction.reply({ content: 'Error loading leaderboard.', ephemeral: true });
+      const formatted = rows.map((r, i) => `#${i + 1} <@${r.user_id}> — ${r.gold} Gold`).join('\n');
+      interaction.reply({ content: `🏆 **Top Gold Holders**\n${formatted}`, ephemeral: true });
+    });
+  }
+
+  if (interaction.commandName === 'admin') {
+    if (interaction.user.id !== process.env.ADMIN_ID) return interaction.reply({ content: 'No permission!', ephemeral: true });
+    const sub = interaction.options.getSubcommand();
+    const target = interaction.options.getUser('user');
+    const amount = interaction.options.getInteger('amount');
+    db.getUserProfile(target.id, (err) => {
+      if (err) return interaction.reply({ content: 'Error loading target profile.', ephemeral: true });
+      if (sub === 'addgold') {
+        db.addGold(target.id, amount);
+        return interaction.reply({ content: `✅ Added ${amount} gold to ${target.username}`, ephemeral: true });
+      }
+      if (sub === 'removegold') {
+        db.addGold(target.id, -amount);
+        return interaction.reply({ content: `✅ Removed ${amount} gold from ${target.username}`, ephemeral: true });
+      }
+      if (sub === 'addxp') {
+        db.addXP(target.id, amount);
+        return interaction.reply({ content: `✅ Added ${amount} XP to ${target.username}`, ephemeral: true });
+      }
+    });
+  }
 });
 
 const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
