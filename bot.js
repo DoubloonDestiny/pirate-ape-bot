@@ -91,7 +91,7 @@ client.on('interactionCreate', async interaction => {
         const boost = db.getGoldBoost(updatedProfile.level);
         const gameLink = `https://doubloon-destiny-nigels-fortune-v01.netlify.app`;
         interaction.reply({
-          content: `🎰 **@${userName} spun the reels!**\n${gridDisplay}\n🏅 Title: ${title}\n🔢 Level: ${updatedProfile.level}\n📊 XP: ${progress}\n💰 Gold Boost: +${boost}%\nYou won **${gold} Gold** and **${xp} XP**\n\n🎮 [Continue your journey](${gameLink})`,
+          content: `🎰 **@${userName} spun the reels!**\n${gridDisplay}\n🏅 Title: ${title}\n🔢 Level: ${updatedProfile.level}\n📊 XP: ${progress}\n💰 Gold Boost: +${boost.toFixed(2)}%\nYou won **${gold} Gold** and **${xp} XP**\n\n🎮 [Continue your journey](${gameLink})`,
           flags: 64
         });
       });
@@ -129,7 +129,7 @@ client.on('interactionCreate', async interaction => {
         const title = db.getTitle(updatedProfile.level);
         const boost = db.getGoldBoost(updatedProfile.level);
         interaction.reply({
-          content: `${allDisplays.join('\n\n')}\n\n🏅 Title: ${title}\n🔢 Level: ${updatedProfile.level}\n📊 XP: ${progress}\n💰 Gold Boost: +${boost}%\nYou won a total of **${totalGold} Gold** and **${totalXP} XP**!`,
+          content: `${allDisplays.join('\n\n')}\n\n🏅 Title: ${title}\n🔢 Level: ${updatedProfile.level}\n📊 XP: ${progress}\n💰 Gold Boost: +${boost.toFixed(2)}%\nYou won a total of **${totalGold} Gold** and **${totalXP} XP**!`,
           ephemeral: true
         });
       });
@@ -143,7 +143,7 @@ client.on('interactionCreate', async interaction => {
       const xpBar = db.getXPProgressBar(profile.xp, profile.level);
       const boost = db.getGoldBoost(profile.level);
       interaction.reply({
-        content: `🏴‍☠️ **Your Pirate Profile**\n🏅 Title: ${title}\n🔢 Level: ${profile.level}\n📊 XP: ${xpBar}\n💰 Gold Boost: +${boost}%`,
+        content: `🏴‍☠️ **Your Pirate Profile**\n🏅 Title: ${title}\n🔢 Level: ${profile.level}\n📊 XP: ${xpBar}\n💰 Gold Boost: +${boost.toFixed(2)}%`,
         ephemeral: true
       });
     });
