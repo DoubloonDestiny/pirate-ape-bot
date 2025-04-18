@@ -1,47 +1,22 @@
-const sqlite3 = require('sqlite3').verbose();
+const { Pool } = require('pg');
+require('dotenv').config();
 
-// Use explicit absolute path to shared DB
-const db = new sqlite3.Database('C:/Users/babyd/Desktop/pirate-ape-bot/pirate-ape-bot/pirateape.db');
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
+});
 
-function initDatabase() {
-  db.run(`CREATE TABLE IF NOT EXISTS users (
-    user_id TEXT PRIMARY KEY,
-    gold INTEGER DEFAULT 10000,
-    xp INTEGER DEFAULT 0,
-    level INTEGER DEFAULT 1,
-    wins INTEGER DEFAULT 0,
-    deaths INTEGER DEFAULT 0,
-    kills INTEGER DEFAULT 0,
-    gold_earned INTEGER DEFAULT 0,
-    weapon_usage TEXT DEFAULT '{}',
-    companion_usage TEXT DEFAULT '{}'
-  )`);
+async function getUserProfile(userId, callback) {
+  try {
+    const res = await pool.query('SELECT * FROM users WHERE user_id = $1', [userId]);
+    if (res.rows.length > 0) return callback(null, res.rows[0]);
 
-  db.run(`CREATE TABLE IF NOT EXISTS inventory (
-    user_id TEXT,
-    item_name TEXT,
-    item_type TEXT,
-    quantity INTEGER DEFAULT 1,
-    PRIMARY KEY (user_id, item_name, item_type)
-  )`);
-
-  db.run(`CREATE TABLE IF NOT EXISTS equipped (
-    user_id TEXT PRIMARY KEY,
-    weapon TEXT,
-    companion TEXT
-  )`);
-}
-
-function getUserProfile(userId, callback) {
-  db.get(`SELECT * FROM users WHERE user_id = ?`, [userId], (err, row) => {
-    if (err) return callback(err);
-    if (row) return callback(null, row);
-
-    db.run(`INSERT INTO users (user_id) VALUES (?)`, [userId], function (err) {
-      if (err) return callback(err);
-      db.get(`SELECT * FROM users WHERE user_id = ?`, [userId], callback);
-    });
-  });
+    await pool.query('INSERT INTO users (user_id) VALUES ($1)', [userId]);
+    const newUser = await pool.query('SELECT * FROM users WHERE user_id = $1', [userId]);
+    return callback(null, newUser.rows[0]);
+  } catch (err) {
+    return callback(err);
+  }
 }
 
 function getUserProfileAsync(userId) {
@@ -55,15 +30,14 @@ function getUserProfileAsync(userId) {
 
 function addGold(userId, amount) {
   const earned = amount > 0 ? amount : 0;
-  db.run(`UPDATE users SET gold = gold + ?, gold_earned = gold_earned + ? WHERE user_id = ?`, [amount, earned, userId]);
+  pool.query('UPDATE users SET gold = gold + $1, gold_earned = gold_earned + $2 WHERE user_id = $3', [amount, earned, userId]);
 }
 
 function addXP(userId, amount) {
-  getUserProfile(userId, (err, user) => {
+  getUserProfile(userId, async (err, user) => {
     if (err) return;
     let newXP = user.xp + amount;
     let newLevel = user.level;
-
     const xpForNextLevel = lvl => 100 + lvl * 20;
 
     while (newXP >= xpForNextLevel(newLevel)) {
@@ -71,7 +45,7 @@ function addXP(userId, amount) {
       newLevel++;
     }
 
-    db.run(`UPDATE users SET xp = ?, level = ? WHERE user_id = ?`, [newXP, newLevel, userId]);
+    await pool.query('UPDATE users SET xp = $1, level = $2 WHERE user_id = $3', [newXP, newLevel, userId]);
   });
 }
 
@@ -102,52 +76,53 @@ function getGoldBoost(level) {
 }
 
 function getLeaderboard(callback) {
-  db.all(`SELECT user_id, gold FROM users ORDER BY gold DESC LIMIT 10`, [], (err, rows) => {
-    callback(err, rows);
+  pool.query('SELECT user_id, gold FROM users ORDER BY gold DESC LIMIT 10', [], (err, result) => {
+    callback(err, result?.rows || []);
   });
 }
 
 function addToInventory(userId, itemName, itemType) {
-  db.run(`INSERT INTO inventory (user_id, item_name, item_type, quantity)
-          VALUES (?, ?, ?, 1)
-          ON CONFLICT(user_id, item_name, item_type) DO UPDATE SET quantity = quantity + 1`,
+  pool.query(`INSERT INTO inventory (user_id, item_name, item_type, quantity)
+              VALUES ($1, $2, $3, 1)
+              ON CONFLICT (user_id, item_name, item_type)
+              DO UPDATE SET quantity = inventory.quantity + 1`,
     [userId, itemName, itemType]);
 }
 
 function getInventory(userId, callback) {
-  db.all(`SELECT item_name, item_type, quantity FROM inventory WHERE user_id = ?`, [userId], (err, rows) => {
-    callback(err, rows);
+  pool.query('SELECT item_name, item_type, quantity FROM inventory WHERE user_id = $1', [userId], (err, result) => {
+    callback(err, result?.rows || []);
   });
 }
 
 function equipItem(userId, itemName, itemType) {
   const column = itemType === 'weapon' ? 'weapon' : 'companion';
-  db.run(`INSERT INTO equipped (user_id, ${column}) VALUES (?, ?)
-          ON CONFLICT(user_id) DO UPDATE SET ${column} = excluded.${column}`,
+  pool.query(`INSERT INTO equipped (user_id, ${column}) VALUES ($1, $2)
+              ON CONFLICT (user_id) DO UPDATE SET ${column} = EXCLUDED.${column}`,
     [userId, itemName]);
 }
 
 function getEquipped(userId, callback) {
-  db.get(`SELECT weapon, companion FROM equipped WHERE user_id = ?`, [userId], (err, row) => {
-    callback(err, row);
+  pool.query('SELECT weapon, companion FROM equipped WHERE user_id = $1', [userId], (err, result) => {
+    callback(err, result?.rows[0]);
   });
 }
 
 function consumeEquippedItems(userId) {
-  db.get(`SELECT weapon, companion FROM equipped WHERE user_id = ?`, [userId], (err, row) => {
+  getEquipped(userId, (err, row) => {
     if (!row) return;
     if (row.weapon) {
-      db.run(`UPDATE inventory SET quantity = quantity - 1 WHERE user_id = ? AND item_name = ? AND item_type = 'weapon'`, [userId, row.weapon]);
+      pool.query(`UPDATE inventory SET quantity = quantity - 1 WHERE user_id = $1 AND item_name = $2 AND item_type = 'weapon'`, [userId, row.weapon]);
     }
     if (row.companion) {
-      db.run(`UPDATE inventory SET quantity = quantity - 1 WHERE user_id = ? AND item_name = ? AND item_type = 'companion'`, [userId, row.companion]);
+      pool.query(`UPDATE inventory SET quantity = quantity - 1 WHERE user_id = $1 AND item_name = $2 AND item_type = 'companion'`, [userId, row.companion]);
     }
   });
 }
 
 function assignTemporaryLoadout(userId, weapon, companion) {
-  db.run(`INSERT INTO equipped (user_id, weapon, companion) VALUES (?, ?, ?)
-          ON CONFLICT(user_id) DO UPDATE SET weapon = excluded.weapon, companion = excluded.companion`,
+  pool.query(`INSERT INTO equipped (user_id, weapon, companion) VALUES ($1, $2, $3)
+              ON CONFLICT (user_id) DO UPDATE SET weapon = EXCLUDED.weapon, companion = EXCLUDED.companion`,
     [userId, weapon, companion]);
 }
 
@@ -162,7 +137,6 @@ function addCompanion(userId, companionId) {
 module.exports = {
   addWeapon,
   addCompanion,
-  initDatabase,
   getUserProfile,
   getUserProfileAsync,
   addGold,
