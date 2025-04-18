@@ -1,5 +1,7 @@
 const sqlite3 = require('sqlite3').verbose();
-const db = new sqlite3.Database('./pirateape.db');
+
+// Use explicit absolute path to shared DB
+const db = new sqlite3.Database('C:/Users/babyd/Desktop/pirate-ape-bot/pirate-ape-bot/pirateape.db');
 
 function initDatabase() {
   db.run(`CREATE TABLE IF NOT EXISTS users (
@@ -52,7 +54,8 @@ function getUserProfileAsync(userId) {
 }
 
 function addGold(userId, amount) {
-  db.run(`UPDATE users SET gold = gold + ?, gold_earned = gold_earned + ? WHERE user_id = ?`, [amount, amount, userId]);
+  const earned = amount > 0 ? amount : 0;
+  db.run(`UPDATE users SET gold = gold + ?, gold_earned = gold_earned + ? WHERE user_id = ?`, [amount, earned, userId]);
 }
 
 function addXP(userId, amount) {
