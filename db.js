@@ -6,7 +6,27 @@ function initDatabase() {
     user_id TEXT PRIMARY KEY,
     gold INTEGER DEFAULT 10000,
     xp INTEGER DEFAULT 0,
-    level INTEGER DEFAULT 1
+    level INTEGER DEFAULT 1,
+    wins INTEGER DEFAULT 0,
+    deaths INTEGER DEFAULT 0,
+    kills INTEGER DEFAULT 0,
+    gold_earned INTEGER DEFAULT 0,
+    weapon_usage TEXT DEFAULT '{}',
+    companion_usage TEXT DEFAULT '{}'
+  )`);
+
+  db.run(`CREATE TABLE IF NOT EXISTS inventory (
+    user_id TEXT,
+    item_name TEXT,
+    item_type TEXT,
+    quantity INTEGER DEFAULT 1,
+    PRIMARY KEY (user_id, item_name, item_type)
+  )`);
+
+  db.run(`CREATE TABLE IF NOT EXISTS equipped (
+    user_id TEXT PRIMARY KEY,
+    weapon TEXT,
+    companion TEXT
   )`);
 }
 
@@ -17,13 +37,22 @@ function getUserProfile(userId, callback) {
 
     db.run(`INSERT INTO users (user_id) VALUES (?)`, [userId], function (err) {
       if (err) return callback(err);
-      getUserProfile(userId, callback);
+      db.get(`SELECT * FROM users WHERE user_id = ?`, [userId], callback);
+    });
+  });
+}
+
+function getUserProfileAsync(userId) {
+  return new Promise((resolve, reject) => {
+    getUserProfile(userId, (err, row) => {
+      if (err) reject(err);
+      else resolve(row);
     });
   });
 }
 
 function addGold(userId, amount) {
-  db.run(`UPDATE users SET gold = gold + ? WHERE user_id = ?`, [amount, userId]);
+  db.run(`UPDATE users SET gold = gold + ?, gold_earned = gold_earned + ? WHERE user_id = ?`, [amount, amount, userId]);
 }
 
 function addXP(userId, amount) {
@@ -66,9 +95,8 @@ function getTitle(level) {
 }
 
 function getGoldBoost(level) {
-    return Math.min(25, level * 0.25);
-  }
-  
+  return Math.min(25, level * 0.25);
+}
 
 function getLeaderboard(callback) {
   db.all(`SELECT user_id, gold FROM users ORDER BY gold DESC LIMIT 10`, [], (err, rows) => {
@@ -76,13 +104,74 @@ function getLeaderboard(callback) {
   });
 }
 
+function addToInventory(userId, itemName, itemType) {
+  db.run(`INSERT INTO inventory (user_id, item_name, item_type, quantity)
+          VALUES (?, ?, ?, 1)
+          ON CONFLICT(user_id, item_name, item_type) DO UPDATE SET quantity = quantity + 1`,
+    [userId, itemName, itemType]);
+}
+
+function getInventory(userId, callback) {
+  db.all(`SELECT item_name, item_type, quantity FROM inventory WHERE user_id = ?`, [userId], (err, rows) => {
+    callback(err, rows);
+  });
+}
+
+function equipItem(userId, itemName, itemType) {
+  const column = itemType === 'weapon' ? 'weapon' : 'companion';
+  db.run(`INSERT INTO equipped (user_id, ${column}) VALUES (?, ?)
+          ON CONFLICT(user_id) DO UPDATE SET ${column} = excluded.${column}`,
+    [userId, itemName]);
+}
+
+function getEquipped(userId, callback) {
+  db.get(`SELECT weapon, companion FROM equipped WHERE user_id = ?`, [userId], (err, row) => {
+    callback(err, row);
+  });
+}
+
+function consumeEquippedItems(userId) {
+  db.get(`SELECT weapon, companion FROM equipped WHERE user_id = ?`, [userId], (err, row) => {
+    if (!row) return;
+    if (row.weapon) {
+      db.run(`UPDATE inventory SET quantity = quantity - 1 WHERE user_id = ? AND item_name = ? AND item_type = 'weapon'`, [userId, row.weapon]);
+    }
+    if (row.companion) {
+      db.run(`UPDATE inventory SET quantity = quantity - 1 WHERE user_id = ? AND item_name = ? AND item_type = 'companion'`, [userId, row.companion]);
+    }
+  });
+}
+
+function assignTemporaryLoadout(userId, weapon, companion) {
+  db.run(`INSERT INTO equipped (user_id, weapon, companion) VALUES (?, ?, ?)
+          ON CONFLICT(user_id) DO UPDATE SET weapon = excluded.weapon, companion = excluded.companion`,
+    [userId, weapon, companion]);
+}
+
+function addWeapon(userId, weaponId) {
+  addToInventory(userId, weaponId, 'weapon');
+}
+
+function addCompanion(userId, companionId) {
+  addToInventory(userId, companionId, 'companion');
+}
+
 module.exports = {
+  addWeapon,
+  addCompanion,
   initDatabase,
   getUserProfile,
+  getUserProfileAsync,
   addGold,
   addXP,
   getXPProgressBar,
   getTitle,
   getGoldBoost,
-  getLeaderboard
+  getLeaderboard,
+  addToInventory,
+  getInventory,
+  equipItem,
+  getEquipped,
+  consumeEquippedItems,
+  assignTemporaryLoadout
 };
