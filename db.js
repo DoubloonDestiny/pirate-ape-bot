@@ -6,6 +6,33 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
+async function initDatabase() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS users (
+      user_id TEXT PRIMARY KEY,
+      gold INTEGER DEFAULT 100,
+      xp INTEGER DEFAULT 0,
+      level INTEGER DEFAULT 1,
+      gold_earned INTEGER DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS inventory (
+      user_id TEXT,
+      item_name TEXT,
+      item_type TEXT,
+      quantity INTEGER DEFAULT 1,
+      PRIMARY KEY (user_id, item_name, item_type)
+    );
+
+    CREATE TABLE IF NOT EXISTS equipped (
+      user_id TEXT PRIMARY KEY,
+      weapon TEXT,
+      companion TEXT
+    );
+  `);
+  console.log('✅ PostgreSQL tables ensured.');
+}
+
 async function getUserProfile(userId, callback) {
   try {
     const res = await pool.query('SELECT * FROM users WHERE user_id = $1', [userId]);
@@ -135,6 +162,7 @@ function addCompanion(userId, companionId) {
 }
 
 module.exports = {
+  initDatabase,
   addWeapon,
   addCompanion,
   getUserProfile,
