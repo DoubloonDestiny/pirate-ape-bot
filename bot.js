@@ -16,28 +16,6 @@ const EMOJI_MAP = {
   nigel: '<:Nigel:1361481810495934474>'
 };
 
-const symbols = [
-  { name: 'rumtankard', chance: 0.38, gold: 4, xp: 2 },
-  { name: 'rumbottle', chance: 0.27, gold: 7, xp: 3 },
-  { name: 'rumbarrel', chance: 0.20, gold: 12, xp: 5 },
-  { name: 'chest', chance: 0.12, gold: 18, xp: 7 },
-  { name: 'nigel', chance: 0.03, gold: 35, xp: 10, isWild: true }
-];
-
-function spinReel() {
-  const r = Math.random();
-  let sum = 0;
-  for (let s of symbols) {
-    sum += s.chance;
-    if (r <= sum) return s;
-  }
-  return symbols[symbols.length - 1];
-}
-
-function getSymbol(name) {
-  return symbols.find(s => s.name === name);
-}
-
 client.once('ready', () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
 });
@@ -54,7 +32,7 @@ client.on('interactionCreate', async interaction => {
         return interaction.reply({ content: `❌ You need at least ${cost} Gold to spin!`, ephemeral: true });
       }
       db.addGold(userId, -cost);
-      const reels = Array.from({ length: 9 }, spinReel);
+      const reels = Array.from({ length: 9 }, slot.spinReel);
       const emojiGrid = reels.map(s => EMOJI_MAP[s.name]);
       const gridDisplay = `${emojiGrid.slice(0, 3).join(' ')}\n${emojiGrid.slice(3, 6).join(' ')}\n${emojiGrid.slice(6, 9).join(' ')}`;
       const { gold, xp } = slot.checkWinningLines(reels, cost);
@@ -89,7 +67,7 @@ client.on('interactionCreate', async interaction => {
       let totalXP = 0;
       let allDisplays = [];
       for (let i = 0; i < quantity; i++) {
-        const reels = Array.from({ length: 9 }, spinReel);
+        const reels = Array.from({ length: 9 }, slot.spinReel);
         const emojiGrid = reels.map(s => EMOJI_MAP[s.name]);
         const gridDisplay = `${emojiGrid.slice(0, 3).join(' ')}\n${emojiGrid.slice(3, 6).join(' ')}\n${emojiGrid.slice(6, 9).join(' ')}`;
         const { gold, xp } = slot.checkWinningLines(reels, amount);

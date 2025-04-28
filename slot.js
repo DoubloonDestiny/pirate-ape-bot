@@ -1,5 +1,5 @@
 const symbols = [
-  { name: 'toxictankard', chance: 0.30, gold: 0.5, xp: 1 },
+  { name: 'toxictankard', chance: 0.33, gold: 0.5, xp: 1 },
   { name: 'rumtankard', chance: 0.25, gold: 1, xp: 2 },
   { name: 'rumbottle', chance: 0.20, gold: 1.5, xp: 3 },
   { name: 'rumbarrel', chance: 0.15, gold: 2, xp: 4 },
