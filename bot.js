@@ -16,12 +16,15 @@ const EMOJI_MAP = {
   nigel: '<:Nigel:1361481810495934474>'
 };
 
+// Store last bet per user for repeat_bet
+const lastBets = {};
+
 client.once('ready', () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
 });
 
 client.on('interactionCreate', async interaction => {
-  if (!interaction.isChatInputCommand() && !(interaction.isButton() && interaction.customId === 'repeat_spin')) return;
+  if (!interaction.isChatInputCommand() && !(interaction.isButton() && (interaction.customId === 'repeat_spin' || interaction.customId === 'repeat_bet'))) return;
   const userId = interaction.user.id;
 
   if (interaction.commandName === 'spin' || (interaction.isButton() && interaction.customId === 'repeat_spin')) {
@@ -69,9 +72,19 @@ client.on('interactionCreate', async interaction => {
     return;
   }
 
-  if (interaction.commandName === 'bet') {
-    const amount = interaction.options.getInteger('amount');
-    const quantity = interaction.options.getInteger('quantity') || 1;
+  if (interaction.commandName === 'bet' || (interaction.isButton() && interaction.customId === 'repeat_bet')) {
+    let amount, quantity;
+    if (interaction.commandName === 'bet') {
+      amount = interaction.options.getInteger('amount');
+      quantity = interaction.options.getInteger('quantity') || 1;
+      lastBets[userId] = { amount, quantity }; // Save last bet for repeat
+    } else {
+      if (!lastBets[userId]) {
+        return interaction.reply({ content: '❌ No previous bet found!', ephemeral: true });
+      }
+      ({ amount, quantity } = lastBets[userId]); // Retrieve saved bet
+    }
+
     if (quantity > 5) {
       return interaction.reply({ content: `❌ You can only bet up to 5 spins at a time!`, ephemeral: true });
     }
@@ -81,7 +94,7 @@ client.on('interactionCreate', async interaction => {
     const totalCost = amount * quantity;
     db.getUserProfile(userId, (err, profile) => {
       if (err || profile.gold < totalCost) {
-        return interaction.reply({ content: `❌ You need at least ${totalCost} Gold to bet ${amount} for ${quantity} spin(s)!`, ephemeral: true });
+        return interaction.reply({ content: `❌ You need at least ${totalCost.toLocaleString()} Gold to bet ${amount.toLocaleString()} for ${quantity} spin(s)!`, ephemeral: true });
       }
       db.addGold(userId, -totalCost);
       let totalGold = 0;
@@ -103,12 +116,24 @@ client.on('interactionCreate', async interaction => {
         const progress = db.getXPProgressBar(updatedProfile.xp, updatedProfile.level);
         const title = db.getTitle(updatedProfile.level);
         const boost = db.getGoldBoost(updatedProfile.level);
+
+        const components = [
+          new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+              .setCustomId('repeat_bet')
+              .setLabel('🔄 Spin Again')
+              .setStyle(ButtonStyle.Primary)
+          )
+        ];
+
         interaction.reply({
           content: `${allDisplays.join('\n\n')}\n\n🏅 Title: ${title}\n🔢 Level: ${updatedProfile.level}\n💰 Gold Boost: +${boost.toFixed(2)}%\n📊 XP: ${progress}\nYou spent **${totalCost.toLocaleString()} Gold**, won a total of **${totalGold.toLocaleString()} Gold** and **${totalXP} XP**.\n💰 New Balance: **${updatedProfile.gold.toLocaleString()} Gold**`,
+          components: components,
           ephemeral: true
         });
       });
     });
+    return;
   }
 
   if (interaction.commandName === 'profile') {
