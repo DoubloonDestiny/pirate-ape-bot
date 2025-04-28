@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('dotenv').config(); 
 const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder } = require('discord.js');
 const db = require('./db');
 const slot = require('./slot');
@@ -8,6 +8,7 @@ db.initDatabase();
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
 const EMOJI_MAP = {
+  toxictankard: '<:toxictankard:1366284249816367174>>',
   rumtankard: '<:rumtankard:1361481716610498773>',
   rumbottle: '<:rumbottle:1361481745672962270>',
   rumbarrel: '<:rumbarrel:1361481765939707934>',
@@ -65,7 +66,7 @@ client.on('interactionCreate', async interaction => {
         const boost = db.getGoldBoost(updatedProfile.level);
         const gameLink = `https://doubloon-destiny-nigels-fortune-v01.netlify.app`;
         interaction.reply({
-          content: `🎰 **@${userName} spun the reels!**\n${gridDisplay}\n🏅 Title: ${title}\n🔢 Level: ${updatedProfile.level}\n📊 XP: ${progress}\n💰 Gold Boost: +${boost.toFixed(2)}%\nYou won **${gold} Gold** and **${xp} XP**\n\n🎮 [Continue your journey](${gameLink})`,
+          content: `🎰 **@${userName} spun the reels!**\n${gridDisplay}\n🏅 Title: ${title}\n🔢 Level: ${updatedProfile.level}\n📊 XP: ${progress}\n💰 Gold Boost: +${boost.toFixed(2)}%\nYou won **${gold.toLocaleString()} Gold** and **${xp} XP**\n\n🎮 [Continue your journey](${gameLink})`,
           flags: 64
         });
       });
@@ -103,7 +104,7 @@ client.on('interactionCreate', async interaction => {
         const title = db.getTitle(updatedProfile.level);
         const boost = db.getGoldBoost(updatedProfile.level);
         interaction.reply({
-          content: `${allDisplays.join('\n\n')}\n\n🏅 Title: ${title}\n🔢 Level: ${updatedProfile.level}\n📊 XP: ${progress}\n💰 Gold Boost: +${boost.toFixed(2)}%\nYou won a total of **${totalGold} Gold** and **${totalXP} XP**!`,
+          content: `${allDisplays.join('\n\n')}\n\n🏅 Title: ${title}\n🔢 Level: ${updatedProfile.level}\n📊 XP: ${progress}\n💰 Gold Boost: +${boost.toFixed(2)}%\nYou won a total of **${totalGold.toLocaleString()} Gold** and **${totalXP} XP**!`,
           ephemeral: true
         });
       });
@@ -127,7 +128,7 @@ client.on('interactionCreate', async interaction => {
     db.getUserProfile(userId, (err, profile) => {
       if (err) return interaction.reply({ content: 'Error retrieving balance.', ephemeral: true });
       interaction.reply({
-        content: `💰 You currently have **${profile.gold} Gold**.\n🔢 Level: ${profile.level} | XP: ${profile.xp}`,
+        content: `💰 You currently have **${profile.gold.toLocaleString()} Gold**.\n🔢 Level: ${profile.level} | XP: ${profile.xp}`,
         ephemeral: true
       });
     });
@@ -136,7 +137,7 @@ client.on('interactionCreate', async interaction => {
   if (interaction.commandName === 'leaderboard') {
     db.getLeaderboard((err, rows) => {
       if (err) return interaction.reply({ content: 'Error loading leaderboard.', ephemeral: true });
-      const formatted = rows.map((r, i) => `#${i + 1} <@${r.user_id}> — ${r.gold} Gold`).join('\n');
+      const formatted = rows.map((r, i) => `#${i + 1} <@${r.user_id}> — ${r.gold.toLocaleString()} Gold`).join('\n');
       interaction.reply({ content: `🏆 **Top Gold Holders**\n${formatted}`, ephemeral: true });
     });
   }
@@ -150,11 +151,11 @@ client.on('interactionCreate', async interaction => {
       if (err) return interaction.reply({ content: 'Error loading target profile.', ephemeral: true });
       if (sub === 'addgold') {
         db.addGold(target.id, amount);
-        return interaction.reply({ content: `✅ Added ${amount} gold to ${target.username}`, ephemeral: true });
+        return interaction.reply({ content: `✅ Added ${amount.toLocaleString()} gold to ${target.username}`, ephemeral: true });
       }
       if (sub === 'removegold') {
         db.addGold(target.id, -amount);
-        return interaction.reply({ content: `✅ Removed ${amount} gold from ${target.username}`, ephemeral: true });
+        return interaction.reply({ content: `✅ Removed ${amount.toLocaleString()} gold from ${target.username}`, ephemeral: true });
       }
       if (sub === 'addxp') {
         db.addXP(target.id, amount);

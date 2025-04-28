@@ -1,18 +1,22 @@
 const symbols = [
-  { name: 'rumtankard', chance: 0.38, gold: 4, xp: 2 },
-  { name: 'rumbottle', chance: 0.27, gold: 7, xp: 3 },
-  { name: 'rumbarrel', chance: 0.20, gold: 12, xp: 5 },
-  { name: 'chest', chance: 0.12, gold: 18, xp: 7 },
-  { name: 'nigel', chance: 0.03, gold: 35, xp: 10, isWild: true }
+  { name: 'toxictankard', chance: 0.30, gold: 0.5, xp: 1 },
+  { name: 'rumtankard', chance: 0.25, gold: 1, xp: 2 },
+  { name: 'rumbottle', chance: 0.20, gold: 1.5, xp: 3 },
+  { name: 'rumbarrel', chance: 0.15, gold: 2, xp: 4 },
+  { name: 'chest', chance: 0.05, gold: 5, xp: 7 },
+  { name: 'nigel', chance: 0.02, gold: 10, xp: 9, isWild: true }
 ];
 
+
 const EMOJI_MAP = {
+  toxictankard: '<:toxictankard:1366284249816367174>>',
   rumtankard: '<:rumtankard:1361481716610498773>',
   rumbottle: '<:rumbottle:1361481745672962270>',
   rumbarrel: '<:rumbarrel:1361481765939707934>',
   chest: '<:chest:1361481792409964574>',
   nigel: '<:Nigel:1361481810495934474>'
 };
+
 
 const winningLines = [
   [0, 1, 2], [3, 4, 5], [6, 7, 8], [0, 4, 8], [2, 4, 6]
