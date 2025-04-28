@@ -1,5 +1,5 @@
 require('dotenv').config(); 
-const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder } = require('discord.js');
+const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const db = require('./db');
 const slot = require('./slot');
 
@@ -45,7 +45,15 @@ client.on('interactionCreate', async interaction => {
         const gameLink = `https://doubloon-destiny-nigels-fortune-v01.netlify.app`;
         interaction.reply({
           content: `🎰 **@${userName} spun the reels!**\n${gridDisplay}\n🏅 Title: ${title}\n🔢 Level: ${updatedProfile.level}\n💰 Gold Boost: +${boost.toFixed(2)}%\n📊 XP: ${progress}\nYou spent **${cost.toLocaleString()} Gold**, won **${gold.toLocaleString()} Gold** and **${xp} XP**.\n💰 New Balance: **${updatedProfile.gold.toLocaleString()} Gold**\n\n🎮 [Continue your journey](${gameLink})`,
-          flags: 64
+          components: [
+            new ActionRowBuilder().addComponents(
+              new ButtonBuilder()
+                .setCustomId('repeat_spin')
+                .setLabel('🔄 Spin Again')
+                .setStyle(ButtonStyle.Primary)
+            )
+          ],
+          ephemeral: true
         });
       });
     });
@@ -143,6 +151,41 @@ client.on('interactionCreate', async interaction => {
         db.addXP(target.id, amount);
         return interaction.reply({ content: `✅ Added ${amount} XP to ${target.username}`, ephemeral: true });
       }
+    });
+  }
+
+  if (interaction.isButton() && interaction.customId === 'repeat_spin') {
+    const userId = interaction.user.id;
+    const cost = 1000;
+    db.getUserProfile(userId, (err, profile) => {
+      if (err || profile.gold < cost) {
+        return interaction.reply({ content: `❌ You need at least ${cost} Gold to spin again!`, ephemeral: true });
+      }
+      db.addGold(userId, -cost);
+      const reels = Array.from({ length: 9 }, slot.spinReel);
+      const emojiGrid = reels.map(s => EMOJI_MAP[s.name]);
+      const gridDisplay = `${emojiGrid.slice(0, 3).join(' ')}\n${emojiGrid.slice(3, 6).join(' ')}\n${emojiGrid.slice(6, 9).join(' ')}`;
+      const { gold, xp } = slot.checkWinningLines(reels, cost);
+      db.addGold(userId, gold);
+      db.addXP(userId, xp);
+      db.getUserProfile(userId, (err, updatedProfile) => {
+        const progress = db.getXPProgressBar(updatedProfile.xp, updatedProfile.level);
+        const title = db.getTitle(updatedProfile.level);
+        const boost = db.getGoldBoost(updatedProfile.level);
+        const gameLink = `https://doubloon-destiny-nigels-fortune-v01.netlify.app`;
+        interaction.reply({
+          content: `🎰 **@${interaction.user.username} spun again!**\n${gridDisplay}\n🏅 Title: ${title}\n🔢 Level: ${updatedProfile.level}\n💰 Gold Boost: +${boost.toFixed(2)}%\n📊 XP: ${progress}\nYou spent **${cost.toLocaleString()} Gold**, won **${gold.toLocaleString()} Gold** and **${xp} XP**.\n💰 New Balance: **${updatedProfile.gold.toLocaleString()} Gold**\n\n🎮 [Continue your journey](${gameLink})`,
+          components: [
+            new ActionRowBuilder().addComponents(
+              new ButtonBuilder()
+                .setCustomId('repeat_spin')
+                .setLabel('🔄 Spin Again')
+                .setStyle(ButtonStyle.Primary)
+            )
+          ],
+          ephemeral: true
+        });
+      });
     });
   }
 });
