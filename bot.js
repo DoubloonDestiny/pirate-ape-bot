@@ -8,7 +8,7 @@ db.initDatabase();
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
 const EMOJI_MAP = {
-  toxictankard: '<:toxictankard:1366284249816367174>>',
+  toxictankard: '<:toxictankard:1366284249816367174>',
   rumtankard: '<:rumtankard:1361481716610498773>',
   rumbottle: '<:rumbottle:1361481745672962270>',
   rumbarrel: '<:rumbarrel:1361481765939707934>',
