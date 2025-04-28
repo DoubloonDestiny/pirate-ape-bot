@@ -26,7 +26,7 @@ client.on('interactionCreate', async interaction => {
 
   if (interaction.commandName === 'spin') {
     const userName = interaction.user.username;
-    const cost = 10;
+    const cost = 1000;
     db.getUserProfile(userId, (err, profile) => {
       if (err || profile.gold < cost) {
         return interaction.reply({ content: `❌ You need at least ${cost} Gold to spin!`, ephemeral: true });
@@ -44,7 +44,7 @@ client.on('interactionCreate', async interaction => {
         const boost = db.getGoldBoost(updatedProfile.level);
         const gameLink = `https://doubloon-destiny-nigels-fortune-v01.netlify.app`;
         interaction.reply({
-          content: `🎰 **@${userName} spun the reels!**\n${gridDisplay}\n🏅 Title: ${title}\n🔢 Level: ${updatedProfile.level}\n📊 XP: ${progress}\n💰 Gold Boost: +${boost.toFixed(2)}%\nYou won **${gold.toLocaleString()} Gold** and **${xp} XP**\n\n🎮 [Continue your journey](${gameLink})`,
+          content: `🎰 **@${userName} spun the reels!**\n${gridDisplay}\n🏅 Title: ${title}\n🔢 Level: ${updatedProfile.level}\n💰 Gold Boost: +${boost.toFixed(2)}%\n📊 XP: ${progress}\nYou spent **${cost.toLocaleString()} Gold**, won **${gold.toLocaleString()} Gold** and **${xp} XP**.\n💰 New Balance: **${updatedProfile.gold.toLocaleString()} Gold**\n\n🎮 [Continue your journey](${gameLink})`,
           flags: 64
         });
       });
@@ -56,6 +56,9 @@ client.on('interactionCreate', async interaction => {
     const quantity = interaction.options.getInteger('quantity') || 1;
     if (quantity > 5) {
       return interaction.reply({ content: `❌ You can only bet up to 5 spins at a time!`, ephemeral: true });
+    }
+    if (amount > 100000) {
+      return interaction.reply({ content: `❌ Maximum bet per spin is 100,000 Gold!`, ephemeral: true });
     }
     const totalCost = amount * quantity;
     db.getUserProfile(userId, (err, profile) => {
@@ -71,9 +74,11 @@ client.on('interactionCreate', async interaction => {
         const emojiGrid = reels.map(s => EMOJI_MAP[s.name]);
         const gridDisplay = `${emojiGrid.slice(0, 3).join(' ')}\n${emojiGrid.slice(3, 6).join(' ')}\n${emojiGrid.slice(6, 9).join(' ')}`;
         const { gold, xp } = slot.checkWinningLines(reels, amount);
+        const winningSymbols = new Set(reels.map(s => s.name));
+        const winningLinesDetail = Array.from(winningSymbols).map(name => `Winning Symbol: **${name}**`).join(' | ');
         totalGold += gold;
         totalXP += xp;
-        allDisplays.push(`🎰 Spin ${i + 1}:\n${gridDisplay}`);
+        allDisplays.push(`🎰 Spin ${i + 1}:\n${gridDisplay}\n${winningLinesDetail}`);
       }
       db.addGold(userId, totalGold);
       db.addXP(userId, totalXP);
@@ -82,7 +87,7 @@ client.on('interactionCreate', async interaction => {
         const title = db.getTitle(updatedProfile.level);
         const boost = db.getGoldBoost(updatedProfile.level);
         interaction.reply({
-          content: `${allDisplays.join('\n\n')}\n\n🏅 Title: ${title}\n🔢 Level: ${updatedProfile.level}\n📊 XP: ${progress}\n💰 Gold Boost: +${boost.toFixed(2)}%\nYou won a total of **${totalGold.toLocaleString()} Gold** and **${totalXP} XP**!`,
+          content: `${allDisplays.join('\n\n')}\n\n🏅 Title: ${title}\n🔢 Level: ${updatedProfile.level}\n💰 Gold Boost: +${boost.toFixed(2)}%\n📊 XP: ${progress}\nYou spent **${totalCost.toLocaleString()} Gold**, won a total of **${totalGold.toLocaleString()} Gold** and **${totalXP} XP**.\n💰 New Balance: **${updatedProfile.gold.toLocaleString()} Gold**`,
           ephemeral: true
         });
       });
@@ -96,7 +101,7 @@ client.on('interactionCreate', async interaction => {
       const xpBar = db.getXPProgressBar(profile.xp, profile.level);
       const boost = db.getGoldBoost(profile.level);
       interaction.reply({
-        content: `🏴‍☠️ **Your Pirate Profile**\n🏅 Title: ${title}\n🔢 Level: ${profile.level}\n📊 XP: ${xpBar}\n💰 Gold Boost: +${boost.toFixed(2)}%`,
+        content: `🏴‍☠️ **Your Pirate Profile**\n🏅 Title: ${title}\n🔢 Level: ${profile.level}\n💰 Gold Boost: +${boost.toFixed(2)}%\n📊 XP: ${xpBar}`,
         ephemeral: true
       });
     });
