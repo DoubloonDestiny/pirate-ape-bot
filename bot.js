@@ -173,55 +173,68 @@ client.on('interactionCreate', async interaction => {
     return;
   }
 
-  // Start Bonus Spins
-  if (interaction.isButton() && interaction.customId === 'start_bonus_spins') {
-    const bonusData = pendingBonusSpins[userId];
-    if (!bonusData) {
-      return interaction.reply({ content: '❌ You have no bonus spins!', ephemeral: true });
-    }
-
-    let totalGold = 0;
-    let totalXP = 0;
-    let allDisplays = [];
-    let spinCount = 0;
-
-    while (bonusData.count > 0) {
-      bonusData.count--;
-      spinCount++;
-
-      const reels = Array.from({ length: 9 }, slot.spinReel);
-      const emojiGrid = reels.map(s => EMOJI_MAP[s.name]);
-      const gridDisplay = `${emojiGrid.slice(0, 3).join(' ')}\n${emojiGrid.slice(3, 6).join(' ')}\n${emojiGrid.slice(6, 9).join(' ')}`;
-      const { gold, xp } = slot.checkWinningLines(reels, bonusData.betAmount);
-
-      const nigelCount = reels.filter(s => s.name === 'nigel').length;
-      if (nigelCount >= 1) {
-        bonusData.count += 3;
-        allDisplays.push(`🎰 Bonus Spin ${spinCount}:\n${gridDisplay}\n🐦 Nigel appeared! +3 more bonus spins!`);
-      } else {
-        allDisplays.push(`🎰 Bonus Spin ${spinCount}:\n${gridDisplay}`);
-      }
-
-      totalGold += gold;
-      totalXP += xp;
-    }
-
-    db.addGold(userId, totalGold);
-    db.addXP(userId, totalXP);
-    db.getUserProfile(userId, (err, updatedProfile) => {
-      const progress = db.getXPProgressBar(updatedProfile.xp, updatedProfile.level);
-      const title = db.getTitle(updatedProfile.level);
-      const boost = db.getGoldBoost(updatedProfile.level);
-
-      delete pendingBonusSpins[userId];
-
-      interaction.reply({
-        content: `${allDisplays.join('\n\n')}\n\n🏅 Title: ${title}\n🔢 Level: ${updatedProfile.level}\n💰 Gold Boost: +${boost.toFixed(2)}%\n📊 XP: ${progress}\nYou won a total of **${totalGold.toLocaleString()} Gold** and **${totalXP} XP** from your bonus spins!\n💰 New Balance: **${updatedProfile.gold.toLocaleString()} Gold**`,
-        ephemeral: true
-      });
-    });
-    return;
+// Start Bonus Spins
+if (interaction.isButton() && interaction.customId === 'start_bonus_spins') {
+  const bonusData = pendingBonusSpins[userId];
+  if (!bonusData) {
+    return interaction.reply({ content: '❌ You have no bonus spins!', ephemeral: true });
   }
+
+  let totalGold = 0;
+  let totalXP = 0;
+  let spinCount = 0;
+  let messageBatch = [];
+  let firstReply = true;
+
+  while (bonusData.count > 0) {
+    bonusData.count--;
+    spinCount++;
+
+    const reels = Array.from({ length: 9 }, slot.spinReel);
+    const emojiGrid = reels.map(s => EMOJI_MAP[s.name]);
+    const gridDisplay = `${emojiGrid.slice(0, 3).join(' ')}\n${emojiGrid.slice(3, 6).join(' ')}\n${emojiGrid.slice(6, 9).join(' ')}`;
+    const { gold, xp } = slot.checkWinningLines(reels, bonusData.betAmount);
+
+    const nigelCount = reels.filter(s => s.name === 'nigel').length;
+    if (nigelCount >= 1) {
+      bonusData.count += 3;
+      messageBatch.push(`🎰 Bonus Spin ${spinCount}:\n${gridDisplay}\n🐦 Nigel appeared! +3 more bonus spins!`);
+    } else {
+      messageBatch.push(`🎰 Bonus Spin ${spinCount}:\n${gridDisplay}`);
+    }
+
+    totalGold += gold;
+    totalXP += xp;
+
+    if (messageBatch.length >= 4 || bonusData.count === 0) {
+      const messageContent = messageBatch.join('\n\n');
+      if (firstReply) {
+        await interaction.reply({ content: messageContent, ephemeral: true });
+        firstReply = false;
+      } else {
+        await interaction.followUp({ content: messageContent, ephemeral: true });
+      }
+      messageBatch = [];
+    }
+  }
+
+  db.addGold(userId, totalGold);
+  db.addXP(userId, totalXP);
+  db.getUserProfile(userId, (err, updatedProfile) => {
+    const progress = db.getXPProgressBar(updatedProfile.xp, updatedProfile.level);
+    const title = db.getTitle(updatedProfile.level);
+    const boost = db.getGoldBoost(updatedProfile.level);
+
+    delete pendingBonusSpins[userId];
+
+    interaction.followUp({
+      content: `🏅 Title: ${title}\n🔢 Level: ${updatedProfile.level}\n💰 Gold Boost: +${boost.toFixed(2)}%\n📊 XP: ${progress}\nYou won a total of **${totalGold.toLocaleString()} Gold** and **${totalXP} XP** from your bonus spins!\n💰 New Balance: **${updatedProfile.gold.toLocaleString()} Gold**`,
+      ephemeral: true
+    });
+  });
+  return;
+}
+
 
   // Profile Command
   if (interaction.commandName === 'profile') {
