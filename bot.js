@@ -74,11 +74,10 @@ client.on('interactionCreate', async interaction => {
         const emojiGrid = reels.map(s => EMOJI_MAP[s.name]);
         const gridDisplay = `${emojiGrid.slice(0, 3).join(' ')}\n${emojiGrid.slice(3, 6).join(' ')}\n${emojiGrid.slice(6, 9).join(' ')}`;
         const { gold, xp } = slot.checkWinningLines(reels, amount);
-        const winningSymbols = new Set(reels.map(s => s.name));
-        const winningLinesDetail = Array.from(winningSymbols).map(name => `Winning Symbol: **${name}**`).join(' | ');
+      
         totalGold += gold;
         totalXP += xp;
-        allDisplays.push(`🎰 Spin ${i + 1}:\n${gridDisplay}\n${winningLinesDetail}`);
+        allDisplays.push(`🎰 Spin ${i + 1}:\n${gridDisplay}`);
       }
       db.addGold(userId, totalGold);
       db.addXP(userId, totalXP);
