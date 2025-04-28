@@ -16,17 +16,18 @@ const EMOJI_MAP = {
   nigel: '<:Nigel:1361481810495934474>'
 };
 
-// Store last bet per user for repeat_bet
 const lastBets = {};
+const pendingBonusSpins = {}; // Tracks bonus spins per user
 
 client.once('ready', () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
 });
 
 client.on('interactionCreate', async interaction => {
-  if (!interaction.isChatInputCommand() && !(interaction.isButton() && (interaction.customId === 'repeat_spin' || interaction.customId === 'repeat_bet'))) return;
+  if (!interaction.isChatInputCommand() && !(interaction.isButton() && ['repeat_spin', 'repeat_bet', 'start_bonus_spins'].includes(interaction.customId))) return;
   const userId = interaction.user.id;
 
+  // Spin Command or Repeat Spin
   if (interaction.commandName === 'spin' || (interaction.isButton() && interaction.customId === 'repeat_spin')) {
     const userName = interaction.user.username;
     const cost = 1000;
@@ -39,6 +40,12 @@ client.on('interactionCreate', async interaction => {
       const emojiGrid = reels.map(s => EMOJI_MAP[s.name]);
       const gridDisplay = `${emojiGrid.slice(0, 3).join(' ')}\n${emojiGrid.slice(3, 6).join(' ')}\n${emojiGrid.slice(6, 9).join(' ')}`;
       const { gold, xp } = slot.checkWinningLines(reels, cost);
+
+      const nigelCount = reels.filter(s => s.name === 'nigel').length;
+      if (nigelCount >= 1) {
+        pendingBonusSpins[userId] = { count: 3, betAmount: cost };
+      }
+
       db.addGold(userId, gold);
       db.addXP(userId, xp);
       db.getUserProfile(userId, (err, updatedProfile) => {
@@ -47,42 +54,49 @@ client.on('interactionCreate', async interaction => {
         const boost = db.getGoldBoost(updatedProfile.level);
         const gameLink = `https://doubloon-destiny-nigels-fortune-v01.netlify.app`;
 
-        const responseContent = `🎰 **@${userName} spun the reels!**\n${gridDisplay}\n🏅 Title: ${title}\n🔢 Level: ${updatedProfile.level}\n💰 Gold Boost: +${boost.toFixed(2)}%\n📊 XP: ${progress}\nYou spent **${cost.toLocaleString()} Gold**, won **${gold.toLocaleString()} Gold** and **${xp} XP**.\n💰 New Balance: **${updatedProfile.gold.toLocaleString()} Gold**\n\n🎮 [Continue your journey](${gameLink})`;
+        let bonusNotice = '';
+        let bonusComponents = [];
+
+        if (pendingBonusSpins[userId]) {
+          bonusNotice = `\n🎉 Nigel appeared! You have **${pendingBonusSpins[userId].count} Bonus Spins** ready!`;
+          bonusComponents.push(
+            new ButtonBuilder()
+              .setCustomId('start_bonus_spins')
+              .setLabel('🎁 Start Bonus Spins')
+              .setStyle(ButtonStyle.Success)
+          );
+        }
 
         const components = [
           new ActionRowBuilder().addComponents(
             new ButtonBuilder()
               .setCustomId('repeat_spin')
               .setLabel('🔄 Spin Again')
-              .setStyle(ButtonStyle.Primary)
+              .setStyle(ButtonStyle.Primary),
+            ...bonusComponents
           )
         ];
 
-        if (interaction.isButton()) {
-          if (interaction.replied || interaction.deferred) {
-            interaction.followUp({ content: responseContent, components: components, ephemeral: true });
-          } else {
-            interaction.reply({ content: responseContent, components: components, ephemeral: true });
-          }
-        } else {
-          interaction.reply({ content: responseContent, components: components, ephemeral: true });
-        }
+        const responseContent = `🎰 **@${userName} spun the reels!**\n${gridDisplay}\n🏅 Title: ${title}\n🔢 Level: ${updatedProfile.level}\n💰 Gold Boost: +${boost.toFixed(2)}%\n📊 XP: ${progress}\nYou spent **${cost.toLocaleString()} Gold**, won **${gold.toLocaleString()} Gold** and **${xp} XP**.\n💰 New Balance: **${updatedProfile.gold.toLocaleString()} Gold**\n\n🎮 [Continue your journey](${gameLink})${bonusNotice}`;
+
+        interaction.reply({ content: responseContent, components: components, ephemeral: true });
       });
     });
     return;
   }
 
+  // Bet Command or Repeat Bet
   if (interaction.commandName === 'bet' || (interaction.isButton() && interaction.customId === 'repeat_bet')) {
     let amount, quantity;
     if (interaction.commandName === 'bet') {
       amount = interaction.options.getInteger('amount');
       quantity = interaction.options.getInteger('quantity') || 1;
-      lastBets[userId] = { amount, quantity }; // Save last bet for repeat
+      lastBets[userId] = { amount, quantity };
     } else {
       if (!lastBets[userId]) {
         return interaction.reply({ content: '❌ No previous bet found!', ephemeral: true });
       }
-      ({ amount, quantity } = lastBets[userId]); // Retrieve saved bet
+      ({ amount, quantity } = lastBets[userId]);
     }
 
     if (quantity > 5) {
@@ -105,7 +119,16 @@ client.on('interactionCreate', async interaction => {
         const emojiGrid = reels.map(s => EMOJI_MAP[s.name]);
         const gridDisplay = `${emojiGrid.slice(0, 3).join(' ')}\n${emojiGrid.slice(3, 6).join(' ')}\n${emojiGrid.slice(6, 9).join(' ')}`;
         const { gold, xp } = slot.checkWinningLines(reels, amount);
-      
+
+        const nigelCount = reels.filter(s => s.name === 'nigel').length;
+        if (nigelCount >= 1) {
+          if (pendingBonusSpins[userId]) {
+            pendingBonusSpins[userId].count += 3;
+          } else {
+            pendingBonusSpins[userId] = { count: 3, betAmount: amount };
+          }
+        }
+
         totalGold += gold;
         totalXP += xp;
         allDisplays.push(`🎰 Spin ${i + 1}:\n${gridDisplay}`);
@@ -117,17 +140,31 @@ client.on('interactionCreate', async interaction => {
         const title = db.getTitle(updatedProfile.level);
         const boost = db.getGoldBoost(updatedProfile.level);
 
+        let bonusNotice = '';
+        let bonusComponents = [];
+
+        if (pendingBonusSpins[userId]) {
+          bonusNotice = `\n🎉 Nigel appeared! You have **${pendingBonusSpins[userId].count} Bonus Spins** ready!`;
+          bonusComponents.push(
+            new ButtonBuilder()
+              .setCustomId('start_bonus_spins')
+              .setLabel('🎁 Start Bonus Spins')
+              .setStyle(ButtonStyle.Success)
+          );
+        }
+
         const components = [
           new ActionRowBuilder().addComponents(
             new ButtonBuilder()
               .setCustomId('repeat_bet')
               .setLabel('🔄 Spin Again')
-              .setStyle(ButtonStyle.Primary)
+              .setStyle(ButtonStyle.Primary),
+            ...bonusComponents
           )
         ];
 
         interaction.reply({
-          content: `${allDisplays.join('\n\n')}\n\n🏅 Title: ${title}\n🔢 Level: ${updatedProfile.level}\n💰 Gold Boost: +${boost.toFixed(2)}%\n📊 XP: ${progress}\nYou spent **${totalCost.toLocaleString()} Gold**, won a total of **${totalGold.toLocaleString()} Gold** and **${totalXP} XP**.\n💰 New Balance: **${updatedProfile.gold.toLocaleString()} Gold**`,
+          content: `${allDisplays.join('\n\n')}\n\n🏅 Title: ${title}\n🔢 Level: ${updatedProfile.level}\n💰 Gold Boost: +${boost.toFixed(2)}%\n📊 XP: ${progress}\nYou spent **${totalCost.toLocaleString()} Gold**, won a total of **${totalGold.toLocaleString()} Gold** and **${totalXP} XP**.\n💰 New Balance: **${updatedProfile.gold.toLocaleString()} Gold**${bonusNotice}`,
           components: components,
           ephemeral: true
         });
@@ -136,6 +173,57 @@ client.on('interactionCreate', async interaction => {
     return;
   }
 
+  // Start Bonus Spins
+  if (interaction.isButton() && interaction.customId === 'start_bonus_spins') {
+    const bonusData = pendingBonusSpins[userId];
+    if (!bonusData) {
+      return interaction.reply({ content: '❌ You have no bonus spins!', ephemeral: true });
+    }
+
+    let totalGold = 0;
+    let totalXP = 0;
+    let allDisplays = [];
+    let spinCount = 0;
+
+    while (bonusData.count > 0) {
+      bonusData.count--;
+      spinCount++;
+
+      const reels = Array.from({ length: 9 }, slot.spinReel);
+      const emojiGrid = reels.map(s => EMOJI_MAP[s.name]);
+      const gridDisplay = `${emojiGrid.slice(0, 3).join(' ')}\n${emojiGrid.slice(3, 6).join(' ')}\n${emojiGrid.slice(6, 9).join(' ')}`;
+      const { gold, xp } = slot.checkWinningLines(reels, bonusData.betAmount);
+
+      const nigelCount = reels.filter(s => s.name === 'nigel').length;
+      if (nigelCount >= 1) {
+        bonusData.count += 3;
+        allDisplays.push(`🎰 Bonus Spin ${spinCount}:\n${gridDisplay}\n🐦 Nigel appeared! +3 more bonus spins!`);
+      } else {
+        allDisplays.push(`🎰 Bonus Spin ${spinCount}:\n${gridDisplay}`);
+      }
+
+      totalGold += gold;
+      totalXP += xp;
+    }
+
+    db.addGold(userId, totalGold);
+    db.addXP(userId, totalXP);
+    db.getUserProfile(userId, (err, updatedProfile) => {
+      const progress = db.getXPProgressBar(updatedProfile.xp, updatedProfile.level);
+      const title = db.getTitle(updatedProfile.level);
+      const boost = db.getGoldBoost(updatedProfile.level);
+
+      delete pendingBonusSpins[userId];
+
+      interaction.reply({
+        content: `${allDisplays.join('\n\n')}\n\n🏅 Title: ${title}\n🔢 Level: ${updatedProfile.level}\n💰 Gold Boost: +${boost.toFixed(2)}%\n📊 XP: ${progress}\nYou won a total of **${totalGold.toLocaleString()} Gold** and **${totalXP} XP** from your bonus spins!\n💰 New Balance: **${updatedProfile.gold.toLocaleString()} Gold**`,
+        ephemeral: true
+      });
+    });
+    return;
+  }
+
+  // Profile Command
   if (interaction.commandName === 'profile') {
     db.getUserProfile(userId, (err, profile) => {
       if (err) return interaction.reply({ content: 'Error loading profile.', ephemeral: true });
@@ -149,6 +237,7 @@ client.on('interactionCreate', async interaction => {
     });
   }
 
+  // Balance Command
   if (interaction.commandName === 'balance') {
     db.getUserProfile(userId, (err, profile) => {
       if (err) return interaction.reply({ content: 'Error retrieving balance.', ephemeral: true });
@@ -159,6 +248,7 @@ client.on('interactionCreate', async interaction => {
     });
   }
 
+  // Leaderboard Command
   if (interaction.commandName === 'leaderboard') {
     db.getLeaderboard((err, rows) => {
       if (err) return interaction.reply({ content: 'Error loading leaderboard.', ephemeral: true });
@@ -167,6 +257,7 @@ client.on('interactionCreate', async interaction => {
     });
   }
 
+  // Admin Commands
   if (interaction.commandName === 'admin') {
     if (interaction.user.id !== process.env.ADMIN_ID) return interaction.reply({ content: 'No permission!', ephemeral: true });
     const sub = interaction.options.getSubcommand();
