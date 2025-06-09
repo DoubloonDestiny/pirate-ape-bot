@@ -1,5 +1,5 @@
 require('dotenv').config(); 
-const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
+const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const db = require('./db');
 const slot = require('./slot');
 
@@ -59,11 +59,11 @@ client.on('interactionCreate', async interaction => {
         let bonusComponents = [];
 
         if (pendingBonusSpins[userId]) {
-          bonusNotice = `\n🎉 Nigel appeared! You have **${pendingBonusSpins[userId].count} Bonus Spins** ready!`;
+          bonusNotice = `\n\ud83c\udf89 Nigel appeared! You have **${pendingBonusSpins[userId].count} Bonus Spins** ready!`;
           bonusComponents.push(
             new ButtonBuilder()
               .setCustomId('start_bonus_spins')
-              .setLabel('🎁 Start Bonus Spins')
+              .setLabel('\ud83c\udff1 Start Bonus Spins')
               .setStyle(ButtonStyle.Success)
           );
         }
@@ -72,18 +72,15 @@ client.on('interactionCreate', async interaction => {
           new ActionRowBuilder().addComponents(
             new ButtonBuilder()
               .setCustomId('repeat_spin')
-              .setLabel('🔁 Spin Again')
+              .setLabel('\ud83d\udd04 Spin Again')
               .setStyle(ButtonStyle.Primary),
             ...bonusComponents
           )
         ];
 
-        const embed = new EmbedBuilder()
-          .setColor(0xffd700)
-          .setTitle(`🎰 @${userName} spun the reels!`)
-          .setDescription(`${gridDisplay}\n\n🏅 Title: ${title}\n🔢 Level: ${updatedProfile.level}\n💰 Gold Boost: +${newBoost.toFixed(2)}%\n📊 XP: ${progress}\nYou spent **${cost.toLocaleString()} Gold**, won **${boostedGold.toLocaleString()} Gold** and **${xp} XP**.\n💰 New Balance: **${updatedProfile.gold.toLocaleString()} Gold**\n\n🎮 [Continue your journey](${gameLink})${bonusNotice}`);
+        const responseContent = `\ud83c\udfb0 **@${userName} spun the reels!**\n${gridDisplay}\n\ud83c\udfc5 Title: ${title}\n\ud83d\udd22 Level: ${updatedProfile.level}\n\ud83d\udcb0 Gold Boost: +${newBoost.toFixed(2)}%\n\ud83d\udcca XP: ${progress}\nYou spent **${cost.toLocaleString()} Gold**, won **${boostedGold.toLocaleString()} Gold** and **${xp} XP**.\n\ud83d\udcb0 New Balance: **${updatedProfile.gold.toLocaleString()} Gold**\n\n\ud83c\udfae [Continue your journey](${gameLink})${bonusNotice}`;
 
-        interaction.reply({ embeds: [embed], components, ephemeral: true });
+        interaction.reply({ content: responseContent, components: components, ephemeral: true });
       });
     });
     return;
@@ -97,21 +94,21 @@ client.on('interactionCreate', async interaction => {
       lastBets[userId] = { amount, quantity };
     } else {
       if (!lastBets[userId]) {
-        return interaction.reply({ content: '❌ No previous bet found!', ephemeral: true });
+        return interaction.reply({ content: '\u274C No previous bet found!', ephemeral: true });
       }
       ({ amount, quantity } = lastBets[userId]);
     }
 
     if (quantity > 5) {
-      return interaction.reply({ content: '❌ You can only bet up to 5 spins at a time!', ephemeral: true });
+      return interaction.reply({ content: `\u274C You can only bet up to 5 spins at a time!`, ephemeral: true });
     }
     if (amount > 100000) {
-      return interaction.reply({ content: '❌ Maximum bet per spin is 100,000 Gold!', ephemeral: true });
+      return interaction.reply({ content: `\u274C Maximum bet per spin is 100,000 Gold!`, ephemeral: true });
     }
     const totalCost = amount * quantity;
     db.getUserProfile(userId, (err, profile) => {
       if (err || profile.gold < totalCost) {
-        return interaction.reply({ content: `❌ You need at least ${totalCost.toLocaleString()} Gold to bet ${amount.toLocaleString()} for ${quantity} spin(s)!`, ephemeral: true });
+        return interaction.reply({ content: `\u274C You need at least ${totalCost.toLocaleString()} Gold to bet ${amount.toLocaleString()} for ${quantity} spin(s)!`, ephemeral: true });
       }
       db.addGold(userId, -totalCost);
       let totalGold = 0;
@@ -132,12 +129,11 @@ client.on('interactionCreate', async interaction => {
           } else {
             pendingBonusSpins[userId] = { count: 3, betAmount: amount };
           }
-          if (pendingBonusSpins[userId].count > 100) pendingBonusSpins[userId].count = 100;
         }
 
         totalGold += boostedGold;
         totalXP += xp;
-        allDisplays.push(`🎰 Spin ${i + 1}:\n${gridDisplay}`);
+        allDisplays.push(`\ud83c\udfb0 Spin ${i + 1}:\n${gridDisplay}`);
       }
       db.addGold(userId, totalGold);
       db.addXP(userId, totalXP);
@@ -150,11 +146,11 @@ client.on('interactionCreate', async interaction => {
         let bonusComponents = [];
 
         if (pendingBonusSpins[userId]) {
-          bonusNotice = `\n🎉 Nigel appeared! You have **${pendingBonusSpins[userId].count} Bonus Spins** ready!`;
+          bonusNotice = `\n\ud83c\udf89 Nigel appeared! You have **${pendingBonusSpins[userId].count} Bonus Spins** ready!`;
           bonusComponents.push(
             new ButtonBuilder()
               .setCustomId('start_bonus_spins')
-              .setLabel('🎁 Start Bonus Spins')
+              .setLabel('\ud83c\udff1 Start Bonus Spins')
               .setStyle(ButtonStyle.Success)
           );
         }
@@ -163,18 +159,17 @@ client.on('interactionCreate', async interaction => {
           new ActionRowBuilder().addComponents(
             new ButtonBuilder()
               .setCustomId('repeat_bet')
-              .setLabel('🔁 Spin Again')
+              .setLabel('\ud83d\udd04 Spin Again')
               .setStyle(ButtonStyle.Primary),
             ...bonusComponents
           )
         ];
 
-        const embed = new EmbedBuilder()
-          .setColor(0xffd700)
-          .setTitle(`🎰 @${interaction.user.username} placed ${quantity} bet(s) of ${amount.toLocaleString()} Gold`)
-          .setDescription(`${allDisplays.join('\n\n')}\n\n🏅 Title: ${title}\n🔢 Level: ${updatedProfile.level}\n💰 Gold Boost: +${boost.toFixed(2)}%\n📊 XP: ${progress}\nYou spent **${totalCost.toLocaleString()} Gold**, won a total of **${totalGold.toLocaleString()} Gold** and **${totalXP} XP**.\n💰 New Balance: **${updatedProfile.gold.toLocaleString()} Gold**${bonusNotice}`);
-
-        interaction.reply({ embeds: [embed], components, ephemeral: true });
+        interaction.reply({
+          content: `${allDisplays.join('\n\n')}\n\n\ud83c\udfc5 Title: ${title}\n\ud83d\udd22 Level: ${updatedProfile.level}\n\ud83d\udcb0 Gold Boost: +${boost.toFixed(2)}%\n\ud83d\udcca XP: ${progress}\nYou spent **${totalCost.toLocaleString()} Gold**, won a total of **${totalGold.toLocaleString()} Gold** and **${totalXP} XP**.\n\ud83d\udcb0 New Balance: **${updatedProfile.gold.toLocaleString()} Gold**${bonusNotice}`,
+          components: components,
+          ephemeral: true
+        });
       });
     });
     return;
