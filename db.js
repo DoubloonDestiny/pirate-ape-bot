@@ -38,11 +38,20 @@ async function getUserProfile(userId, callback) {
     const res = await pool.query('SELECT * FROM users WHERE user_id = $1', [userId]);
     if (res.rows.length > 0) return callback(null, res.rows[0]);
 
-    await pool.query(`INSERT INTO users (user_id, gold, xp, level, gold_earned)
-                  VALUES ($1, DEFAULT, DEFAULT, DEFAULT, DEFAULT)`, [userId]);
-
+    await pool.query('INSERT INTO users (user_id) VALUES ($1)', [userId]);
     const newUser = await pool.query('SELECT * FROM users WHERE user_id = $1', [userId]);
-    return callback(null, newUser.rows[0]);
+    
+    const user = newUser.rows[0];
+    console.log(`🧾 New user profile created:
+      - ID: ${user.user_id}
+      - Gold: ${user.gold}
+      - XP: ${user.xp}
+      - Level: ${user.level}
+      - Gold Earned: ${user.gold_earned}`);
+    
+    return callback(null, user);
+      
+
   } catch (err) {
     return callback(err);
   }
