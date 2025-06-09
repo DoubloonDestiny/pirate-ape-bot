@@ -236,19 +236,32 @@ if (interaction.isButton() && interaction.customId === 'start_bonus_spins') {
 }
 
 
-  // Profile Command
-  if (interaction.commandName === 'profile') {
-    db.getUserProfile(userId, (err, profile) => {
-      if (err) return interaction.reply({ content: 'Error loading profile.', ephemeral: true });
-      const title = db.getTitle(profile.level);
-      const xpBar = db.getXPProgressBar(profile.xp, profile.level);
-      const boost = db.getGoldBoost(profile.level);
-      interaction.reply({
-        content: `🏴‍☠️ **Your Pirate Profile**\n🏅 Title: ${title}\n🔢 Level: ${profile.level}\n💰 Gold Boost: +${boost.toFixed(2)}%\n📊 XP: ${xpBar}`,
-        ephemeral: true
-      });
-    });
-  }
+// Profile Command
+if (interaction.commandName === 'profile') {
+  db.getUserProfile(userId, (err, profile) => {
+    if (err) return interaction.reply({ content: 'Error loading profile.', ephemeral: true });
+    const title = db.getTitle(profile.level);
+    const xpBar = db.getXPProgressBar(profile.xp, profile.level);
+    const boost = db.getGoldBoost(profile.level);
+
+    const embed = {
+      color: 0x0099ff,
+      author: {
+        name: `${interaction.user.username}'s Pirate Profile`,
+        icon_url: interaction.user.displayAvatarURL({ dynamic: true })
+      },
+      fields: [
+        { name: '🏅 Title', value: title, inline: true },
+        { name: '🔢 Level', value: `${profile.level}`, inline: true },
+        { name: '💰 Gold Boost', value: `+${boost.toFixed(2)}%`, inline: true },
+        { name: '📊 XP', value: xpBar, inline: false }
+      ]
+    };
+
+    interaction.reply({ embeds: [embed], ephemeral: true });
+  });
+}
+
 
   // Balance Command
   if (interaction.commandName === 'balance') {
