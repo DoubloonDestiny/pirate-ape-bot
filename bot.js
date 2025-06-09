@@ -244,19 +244,25 @@ if (interaction.commandName === 'profile') {
     const xpBar = db.getXPProgressBar(profile.xp, profile.level);
     const boost = db.getGoldBoost(profile.level);
 
+    const avatarUrl = interaction.user.displayAvatarURL({ dynamic: true, size: 512 });
+
     const embed = {
       color: 0x0099ff,
       author: {
         name: `${interaction.user.username}'s Pirate Profile`,
-        icon_url: interaction.user.displayAvatarURL({ dynamic: true })
+        icon_url: avatarUrl
       },
       fields: [
         { name: '🏅 Title', value: title, inline: true },
         { name: '🔢 Level', value: `${profile.level}`, inline: true },
         { name: '💰 Gold Boost', value: `+${boost.toFixed(2)}%`, inline: true },
         { name: '📊 XP', value: xpBar, inline: false }
-      ]
+      ],
+      image: {
+        url: avatarUrl // ✅ Full-size image added here
+      }
     };
+    
 
     interaction.reply({ embeds: [embed], ephemeral: true });
   });
