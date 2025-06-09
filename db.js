@@ -10,7 +10,7 @@ async function initDatabase() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS users (
       user_id TEXT PRIMARY KEY,
-      gold INTEGER DEFAULT 100,
+      gold INTEGER DEFAULT 500000,
       xp INTEGER DEFAULT 0,
       level INTEGER DEFAULT 1,
       gold_earned INTEGER DEFAULT 0
